@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Планировщик холодовой цепи</title>
+<meta name="description" content="Допустимое время скоропортящегося груза на перроне, свободная емкость рейса, трехмерный план загрузки с проверкой совместимости и экономика внедрения.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/base.css">
+<style>
+body{background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5;min-height:100vh}
+/* мягкий фон, чтобы стеклу было что преломлять */
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(50% 40% at 10% 0%,var(--bg-2),transparent 70%),radial-gradient(40% 40% at 100% 30%,var(--bg-2),transparent 70%),var(--bg)}
+.wrap{max-width:1240px;margin:0 auto;padding:max(14px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 48px max(16px,env(safe-area-inset-left))}
+
+header.top{position:sticky;top:10px;z-index:20;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 18px;
+  padding:8px 8px 8px 10px;border-radius:30px;margin-bottom:22px}
+.brandlink{display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;min-width:0}
+.badge{width:44px;height:44px;flex:none;border-radius:14px;background:var(--brand);display:grid;place-items:center;box-shadow:0 6px 16px -6px rgba(206,31,44,.7)}
+.badge svg{width:34px;height:34px;overflow:visible}
+.badge .ring,.badge .flake{fill:none;stroke:var(--brand-ink);stroke-linecap:round;stroke-linejoin:round}
+.badge .ring{stroke-width:4.5;stroke-dasharray:100;stroke-dashoffset:100;animation:draw 1.2s .1s cubic-bezier(.65,0,.25,1) forwards}
+.badge .flake{stroke-width:3.4;stroke-dasharray:100;stroke-dashoffset:100;animation:draw .9s .5s cubic-bezier(.65,0,.25,1) forwards}
+.badge .plane{fill:#fff;transform-box:view-box;transform-origin:32px 32px;animation:orbit 1.3s cubic-bezier(.55,0,.2,1) both}
+@keyframes draw{to{stroke-dashoffset:0}}
+@keyframes orbit{from{transform:rotate(-360deg)}to{transform:rotate(0)}}
+.brandlink .t{font-weight:800;font-size:17px;line-height:1.15;letter-spacing:-.01em}
+.brandlink .s{font-size:12px;color:var(--muted);font-weight:600}
+.tools{display:flex;gap:8px;align-items:center}
+@media (max-width:900px){header.top{position:static;border-radius:26px;flex-wrap:wrap} .brandlink{flex:1} #tabs{order:3;width:100%;justify-content:center}}
+@media (max-width:480px){.brandlink .s{display:none}}
+
+section.view{display:grid;grid-template-columns:minmax(270px,350px) minmax(0,1fr);gap:18px}
+section.view.wide{grid-template-columns:minmax(270px,330px) minmax(0,1fr)}
+@media (max-width:860px){section.view,section.view.wide{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border-radius:28px;padding:20px;min-width:0;box-shadow:0 0 0 1px var(--line),0 20px 40px -30px rgba(0,0,0,.35);
+  -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+.panel h2{font-weight:800;font-size:21px;margin:0 0 14px;letter-spacing:-.01em}
+.panel h3{font-weight:700;font-size:12px;margin:20px 0 10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em}
+.field{display:grid;gap:8px;margin-bottom:16px}
+.field>label,.field>.lab{font-size:13px;color:var(--muted);font-weight:600}
+.field .row{display:flex;gap:12px;align-items:center}
+.val{font-size:14px;font-weight:700;min-width:70px;text-align:right}
+.gseg.col{display:grid;grid-template-columns:1fr;border-radius:24px}
+.gseg.col button{justify-content:flex-start;white-space:normal;text-align:left;line-height:1.25;padding:8px 14px}
+.gseg.grid2{display:grid;grid-template-columns:1fr 1fr}
+.gseg.grid2 button{justify-content:center}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:16px}
+.kpi{border-radius:22px;padding:14px 16px;background:var(--soft)}
+.kpi .k{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+.kpi .v{font-size:30px;font-weight:800;line-height:1.15;letter-spacing:-.02em;margin-top:2px}
+.kpi .s{font-size:12.5px;color:var(--muted);font-weight:500}
+.pill{display:inline-block;font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;margin-left:4px}
+.pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.warn{background:var(--warn-soft);color:var(--warn)} .pill.bad{background:var(--bad-soft);color:var(--bad)}
+.chart{width:100%;height:auto;display:block}
+.chart text{fill:var(--muted);font-family:var(--font);font-size:11.5px;font-weight:600}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart .axis{stroke:var(--line-2);stroke-width:1}
+.note{font-size:12.5px;color:var(--muted);margin:10px 0 0;line-height:1.55}
+table.t{width:100%;border-collapse:collapse;font-size:13.5px}
+table.t th,table.t td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left;vertical-align:top}
+table.t th{font-weight:700;color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.06em}
+table.t td.n{text-align:right;font-weight:600}
+#c-mc th:not(:first-child){text-align:right}
+.tw{overflow-x:auto}
+.bars{display:grid;gap:12px}
+.bar{display:grid;grid-template-columns:150px minmax(0,1fr) 84px;gap:10px;align-items:center;font-size:13.5px;font-weight:500}
+.bar small{grid-column:2/4;color:var(--muted);font-size:12px;margin-top:-8px}
+@media (max-width:480px){.bar{grid-template-columns:104px minmax(0,1fr) 66px}}
+.bar .track{height:12px;background:var(--soft);border-radius:99px;overflow:hidden}
+.bar .fill{height:100%;background:var(--ink);border-radius:99px;transition:width .5s cubic-bezier(.3,1.2,.5,1)}
+.bar .num{text-align:right;font-weight:700}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.issues{list-style:none;padding:0;margin:0;display:grid;gap:8px}
+.issues li{font-size:13.5px;padding:10px 14px 10px 16px;border-radius:18px;background:var(--soft);position:relative}
+.issues li::before{content:"";position:absolute;left:6px;top:12px;bottom:12px;width:3px;border-radius:3px;background:var(--line-2)}
+.issues li.bad::before{background:var(--bad)} .issues li.warn::before{background:var(--warn)} .issues li.ok::before{background:var(--ok)}
+
+/* ---------- трехмерный вид ---------- */
+.viewer{position:relative;border-radius:24px;overflow:hidden;background:radial-gradient(120% 90% at 50% 0%,var(--panel-solid),var(--bg) 80%);
+  box-shadow:0 0 0 1px var(--line);aspect-ratio:16/9;min-height:360px}
+.viewer:fullscreen{border-radius:0;aspect-ratio:auto}
+.viewer canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+.viewer canvas.grabbing{cursor:grabbing}
+.vbar{position:absolute;left:12px;right:12px;top:12px;display:flex;justify-content:space-between;gap:8px;pointer-events:none;flex-wrap:wrap}
+.vbar>*{pointer-events:auto}
+.vbar .gseg button{min-height:34px;padding:0 13px;font-size:13px}
+.vtools{display:flex;gap:6px}
+.vtools .gbtn.icon{width:42px;min-height:42px}
+.vhint{position:absolute;left:14px;bottom:12px;font-size:12px;font-weight:600;color:var(--muted);pointer-events:none;padding:6px 12px;border-radius:99px}
+.vlabel{position:absolute;left:0;top:0;pointer-events:none;font-size:11.5px;font-weight:700;letter-spacing:.04em;white-space:nowrap;
+  padding:4px 10px;border-radius:99px;color:var(--ink);transform:translate(-50%,-50%);transition:opacity .2s}
+.vtip{position:absolute;left:0;top:0;pointer-events:none;padding:8px 14px;border-radius:16px;font-size:13px;font-weight:600;line-height:1.35;
+  transform:translate(14px,-110%);opacity:0;transition:opacity .15s;max-width:240px}
+.vtip b{font-weight:800}
+.vtip.on{opacity:1}
+.vnote{position:absolute;right:14px;bottom:12px;font-size:12px;font-weight:600;color:var(--muted);padding:6px 12px;border-radius:99px;max-width:60%;text-align:right}
+@media (max-width:560px){.vhint{display:none}.viewer{aspect-ratio:4/5}}
+
+footer{margin-top:30px;color:var(--muted);font-size:12.5px;display:flex;flex-wrap:wrap;gap:6px 20px;justify-content:space-between}
+footer i{font-style:italic}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top glass">
+    <a class="brandlink" href="index.html" title="На первую страницу">
+      <span class="badge"><svg viewBox="0 0 64 64" aria-hidden="true">
+        <path class="ring" pathLength="100" d="M44 11.22 A24 24 0 1 1 20 11.22"/>
+        <path class="flake" pathLength="100" d="M32 19 L32 45 M20.74 25.5 L43.26 38.5 M43.26 25.5 L20.74 38.5 M32 40 L34.81 43.12 M32 40 L29.19 43.12 M25.07 36 L23.77 39.99 M25.07 36 L20.96 35.13 M25.07 28 L20.96 28.87 M25.07 28 L23.77 24.01 M32 24 L29.19 20.88 M32 24 L34.81 20.88 M38.93 28 L40.23 24.01 M38.93 28 L43.04 28.87 M38.93 36 L43.04 35.13 M38.93 36 L40.23 39.99"/>
+        <g class="plane"><path transform="translate(32 8)" d="M6 0 C6 -.8 5 -1 4 -1 L1 -1 L-2.5 -6 L-4 -6 L-2 -1 L-4.5 -1 L-6 -3 L-7 -3 L-6 0 L-7 3 L-6 3 L-4.5 1 L-2 1 L-4 6 L-2.5 6 L1 1 L4 1 C5 1 6 .8 6 0Z"/></g>
+      </svg></span>
+      <span><span class="t">Планировщик холодовой цепи</span><br><span class="s">скоропортящиеся грузы на пассажирских рейсах</span></span>
+    </a>
+    <nav id="tabs" aria-label="Разделы"></nav>
+    <div class="tools">
+      <button class="gbtn glass icon" id="themeBtn" type="button" title="Светлая или темная тема" aria-label="Переключить тему">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 0 0 16z" fill="currentColor"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ===================== ПЕРРОН ===================== -->
+  <section class="view" id="v-apron">
+    <div class="panel">
+      <h2>Условия на перроне</h2>
+      <div class="field"><span class="lab">Вид груза</span><div id="a-prod" class="col"></div></div>
+      <div class="field"><span class="lab">Аэропорт и сезон</span><div id="a-clim" class="col"></div></div>
+      <div class="field"><label for="a-t">Температура воздуха, °С</label><div class="row"><input id="a-t" type="range" min="-45" max="45" step="1"><span class="val" id="a-t-v"></span></div></div>
+      <div class="field"><label for="a-g">Солнечная радиация, Вт/м²</label><div class="row"><input id="a-g" type="range" min="0" max="1000" step="50"><span class="val" id="a-g-v"></span></div></div>
+      <div class="field"><span class="lab">Защита груза</span><div id="a-prot" class="col"></div></div>
+      <div class="field"><label for="a-exp">Плановое время вне камеры, мин</label><div class="row"><input id="a-exp" type="range" min="5" max="240" step="5"><span class="val" id="a-exp-v"></span></div></div>
+    </div>
+    <div class="panel">
+      <div class="kpis">
+        <div class="kpi"><div class="k">До выхода из режима</div><div class="v" id="a-k1">–</div><div class="s" id="a-k1s"></div></div>
+        <div class="kpi"><div class="k">Норматив с запасом 30 %</div><div class="v" id="a-k2">–</div><div class="s">рекомендуемый предел для службы</div></div>
+        <div class="kpi"><div class="k">Потеря срока годности</div><div class="v" id="a-k3">–</div><div class="s" id="a-k3s"></div></div>
+      </div>
+      <svg class="chart" id="a-chart" viewBox="0 0 720 300" role="img" aria-label="Температура продукта во времени"></svg>
+      <p class="note">Нагрев наружного места груза считается по условной температуре «солнце и воздух» при коэффициенте теплоотдачи 17 Вт/(м²·К), для рыбы учтено таяние льда. Потеря срока годности для рыбы оценивается по модели Ратковского, для ягод и цветов по правилу Q10 (3,0 и 2,5). Сплошная линия показывает выбранную защиту, пунктир соответствует грузу без защиты.</p>
+    </div>
+  </section>
+
+  <!-- ===================== ЕМКОСТЬ ===================== -->
+  <section class="view" id="v-capacity" hidden>
+    <div class="panel">
+      <h2>Параметры рейса</h2>
+      <div class="field"><span class="lab">Тип ВС</span><div id="c-ac" class="grid2"></div></div>
+      <div class="field"><label for="c-lf">Загрузка салона, %</label><div class="row"><input id="c-lf" type="range" min="40" max="100" step="1"><span class="val" id="c-lf-v"></span></div></div>
+      <div class="field"><label for="c-bag">Багаж на пассажира, кг</label><div class="row"><input id="c-bag" type="range" min="5" max="25" step="0.5"><span class="val" id="c-bag-v"></span></div></div>
+      <div class="field"><label for="c-k">Эксплуатационные ограничения k</label><div class="row"><input id="c-k" type="range" min="0.7" max="1" step="0.01"><span class="val" id="c-k-v"></span></div></div>
+      <p class="note" id="c-src"></p>
+    </div>
+    <div class="panel">
+      <div class="kpis">
+        <div class="kpi"><div class="k">Свободный объем</div><div class="v" id="c-k1">–</div><div class="s">м³ после багажа</div></div>
+        <div class="kpi"><div class="k">Свободная масса</div><div class="v" id="c-k2">–</div><div class="s" id="c-k2s"></div></div>
+        <div class="kpi"><div class="k">Багаж</div><div class="v" id="c-k3">–</div><div class="s" id="c-k3s"></div></div>
+      </div>
+      <h3>Емкость под вид груза, кг на рейс</h3>
+      <div class="bars" id="c-bars"></div>
+      <h3>Разброс по 2000 смоделированных рейсов</h3>
+      <div class="tw"><table class="t" id="c-mc"></table></div>
+      <p class="note">Свободная емкость равна объему и массе отсеков за вычетом багажа с учетом ограничения по коммерческой загрузке. В расчете разброса загрузка салона распределена по закону B(18; 2,6), багаж по N(16; 3) кг, коэффициент k равномерно от 0,85 до 1,0.</p>
+    </div>
+  </section>
+
+  <!-- ===================== ПЛАН ОТСЕКА ===================== -->
+  <section class="view wide" id="v-hold" hidden>
+    <div class="panel">
+      <h2>Комплектование</h2>
+      <div class="field"><span class="lab">Тип ВС</span><div id="h-ac" class="grid2"></div></div>
+      <div class="field"><span class="lab">Груз для назначения позиции</span><div id="h-pal" class="col"></div></div>
+      <div class="field"><label for="h-kg">Масса брутто ULD, кг</label><div class="row"><input id="h-kg" type="range" min="50" max="1588" step="10"><span class="val" id="h-kg-v"></span></div></div>
+      <div class="btns"><button class="gbtn glass solid" id="h-sample" type="button">Загрузить пример</button><button class="gbtn glass" id="h-clear" type="button">Очистить</button></div>
+      <p class="note">Нажмите на место контейнера AKE, чтобы поставить туда выбранный груз, повторное нажатие тем же грузом освобождает место. При загрузке примера контейнеры заходят через грузовые двери в том порядке, в каком их грузят на перроне, начиная с дальних мест.</p>
+    </div>
+    <div class="panel">
+      <div class="viewer" id="viewer">
+        <canvas id="hold3d" aria-label="Трехмерная модель самолета с позициями контейнеров"></canvas>
+        <div class="vbar">
+          <div id="v-preset"></div>
+          <div class="vtools">
+            <button class="gbtn glass icon" id="v-doors" type="button" aria-pressed="false" title="Грузовые двери" aria-label="Открыть или закрыть грузовые двери">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 9h16M9 13h6"/></svg></button>
+            <button class="gbtn glass icon" id="v-xray" type="button" aria-pressed="true" title="Прозрачный фюзеляж" aria-label="Прозрачный фюзеляж">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+            <button class="gbtn glass icon" id="v-spin" type="button" aria-pressed="false" title="Автоповорот" aria-label="Автоповорот">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg></button>
+            <button class="gbtn glass icon" id="v-full" type="button" title="Во весь экран" aria-label="Во весь экран">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+          </div>
+        </div>
+        <div class="vhint glass">Вращайте мышью или пальцем, колесом приближайте</div>
+        <div class="vnote glass" id="v-note" hidden></div>
+        <div class="vtip glass" id="v-tip"></div>
+        <div id="v-labels"></div>
+      </div>
+      <div class="kpis" style="margin-top:14px">
+        <div class="kpi"><div class="k">Передний отсек</div><div class="v" id="h-k1">–</div><div class="s" id="h-k1s"></div></div>
+        <div class="kpi"><div class="k">Задний отсек</div><div class="v" id="h-k2">–</div><div class="s" id="h-k2s"></div></div>
+        <div class="kpi"><div class="k">Скоропортящийся груз</div><div class="v" id="h-k3">–</div><div class="s">контейнеров AKE</div></div>
+      </div>
+      <h3>Проверка плана</h3>
+      <ul class="issues" id="h-issues"></ul>
+    </div>
+  </section>
+
+  <!-- ===================== ЭКОНОМИКА ===================== -->
+  <section class="view" id="v-econ" hidden>
+    <div class="panel">
+      <h2>Допущения</h2>
+      <div class="field"><label for="e-pot">Потенциальная выручка, млн руб. в год</label><div class="row"><input id="e-pot" type="range" min="30" max="200" step="1"><span class="val" id="e-pot-v"></span></div></div>
+      <div class="field"><label for="e-real">Реализация потенциала к 4-му году, %</label><div class="row"><input id="e-real" type="range" min="25" max="90" step="1"><span class="val" id="e-real-v"></span></div></div>
+      <div class="field"><label for="e-m">Маржинальная доходность, %</label><div class="row"><input id="e-m" type="range" min="20" max="70" step="1"><span class="val" id="e-m-v"></span></div></div>
+      <div class="field"><label for="e-capex">Капитальные затраты, млн руб.</label><div class="row"><input id="e-capex" type="range" min="3" max="20" step="0.1"><span class="val" id="e-capex-v"></span></div></div>
+      <div class="field"><label for="e-opex">Постоянные расходы, млн руб. в год</label><div class="row"><input id="e-opex" type="range" min="1" max="10" step="0.1"><span class="val" id="e-opex-v"></span></div></div>
+      <div class="field"><label for="e-r">Ставка дисконтирования, %</label><div class="row"><input id="e-r" type="range" min="10" max="30" step="0.5"><span class="val" id="e-r-v"></span></div></div>
+    </div>
+    <div class="panel">
+      <div class="kpis">
+        <div class="kpi"><div class="k">NPV за 5 лет</div><div class="v" id="e-k1">–</div><div class="s">млн руб.</div></div>
+        <div class="kpi"><div class="k">IRR</div><div class="v" id="e-k2">–</div><div class="s" id="e-k2s"></div></div>
+        <div class="kpi"><div class="k">Срок окупаемости</div><div class="v" id="e-k3">–</div><div class="s">дисконтированный, лет</div></div>
+      </div>
+      <svg class="chart" id="e-chart" viewBox="0 0 720 280" role="img" aria-label="Накопленный дисконтированный денежный поток"></svg>
+      <div class="tw"><table class="t" id="e-tab"></table></div>
+      <p class="note">Базовый сценарий: без мероприятий авиакомпания реализует 20 % потенциала, с мероприятиями доля растет по годам как 28, 40, 50, 55 и 55 % (ползунок масштабирует эту траекторию). Снижение претензий взято из имитационной модели процесса.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>Автор: Понкратьева Александра Андреевна, ТЛ3922, <i>СПбГУ ГА имени Главного маршала авиации А.&nbsp;А.&nbsp;Новикова</i>, 2026</span>
+    <span>Значения по умолчанию служат примером, а не фактическими данными авиакомпании</span>
+  </footer>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script>window.THREE||document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>')</script>
+<script src="assets/glass.js"></script>
+<script src="assets/hold3d.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
