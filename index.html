@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Планировщик холодовой цепи: допустимое время скоропортящегося груза на перроне, свободная емкость рейса, 3D-план отсека с проверкой совместимости и экономика внедрения.">
+<meta property="og:title" content="Планировщик холодовой цепи">
+<meta property="og:description" content="Инструмент для службы грузовых перевозок авиакомпании: перрон, емкость рейса, план отсека, экономика.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<style>:root{color-scheme:light}html,body{margin:0}[hidden]{display:none!important}img{max-width:100%}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+<title>Планировщик холодовой цепи</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: операторская консоль – шапка с вкладками, слева параметры, справа результат; на телефоне – одна колонка */
+:root{
+  --bg:#f3f5f7; --panel:#ffffff; --ink:#14212b; --muted:#5b6b78; --line:#d6dde3;
+  --accent:#0b7a8a; --accent-ink:#ffffff; --accent-soft:#dff1f3;
+  --ok:#2e7d4f; --warn:#b7791f; --bad:#c0392b; --ok-soft:#e3f2e8; --warn-soft:#fbf0dc; --bad-soft:#f9e1de;
+  --c-bag:#9aa6b0; --c-gen:#d9b64a; --c-pes:#c55a11; --c-pep:#4f8f3a; --c-pef:#b5559c; --c-pil:#2e75b6; --c-fro:#5bc0de;
+  --f-display:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --r:6px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f171d; --panel:#16222b; --ink:#e4ecf1; --muted:#93a4b1; --line:#2a3a46;
+  --accent:#3fb6c6; --accent-ink:#06202a; --accent-soft:#163640;
+  --ok:#5cc187; --warn:#e3b04f; --bad:#ef7462; --ok-soft:#173326; --warn-soft:#352a14; --bad-soft:#3a1d19;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f171d; --panel:#16222b; --ink:#e4ecf1; --muted:#93a4b1; --line:#2a3a46;
+  --accent:#3fb6c6; --accent-ink:#06202a; --accent-soft:#163640;
+  --ok:#5cc187; --warn:#e3b04f; --bad:#ef7462; --ok-soft:#173326; --warn-soft:#352a14; --bad-soft:#3a1d19;
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px;border-bottom:1px solid var(--line);padding-bottom:14px}
+.brand h1{font-family:var(--f-display);font-weight:700;font-size:30px;letter-spacing:.01em;margin:0;line-height:1.1;text-wrap:balance}
+.brand p{margin:4px 0 0;color:var(--muted);font-size:13.5px;max-width:62ch}
+.code{font-family:var(--f-mono);font-size:12px;color:var(--muted);letter-spacing:.04em}
+nav.tabs{display:flex;flex-wrap:wrap;gap:4px}
+nav.tabs a{font-family:var(--f-display);font-weight:600;font-size:16px;text-decoration:none;color:var(--muted);padding:7px 14px;border-radius:var(--r);border:1px solid transparent}
+nav.tabs a:hover{color:var(--ink);border-color:var(--line)}
+nav.tabs a[aria-current="page"]{background:var(--accent);color:var(--accent-ink)}
+nav.tabs a:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+section.view{display:grid;grid-template-columns:minmax(260px,340px) minmax(0,1fr);gap:20px;margin-top:20px}
+@media (max-width:820px){section.view{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0}
+.panel h2{font-family:var(--f-display);font-weight:600;font-size:20px;margin:0 0 10px}
+.panel h3{font-family:var(--f-display);font-weight:600;font-size:16px;margin:16px 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.field{display:grid;gap:4px;margin-bottom:12px}
+.field label{font-size:13px;color:var(--muted)}
+.field .row{display:flex;gap:8px;align-items:center}
+select,input[type=number]{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:var(--r);padding:6px 8px;width:100%}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.val{font-family:var(--f-mono);font-size:13px;min-width:64px;text-align:right;font-variant-numeric:tabular-nums}
+.seg{display:flex;flex-wrap:wrap;gap:4px}
+.seg button{font:inherit;font-size:13px;padding:5px 10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:var(--r);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--ink);font-weight:600}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.kpi{border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;background:var(--bg)}
+.kpi .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.kpi .v{font-family:var(--f-display);font-size:28px;font-weight:700;line-height:1.15;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:12.5px;color:var(--muted)}
+.pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px}
+.pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.warn{background:var(--warn-soft);color:var(--warn)} .pill.bad{background:var(--bad-soft);color:var(--bad)}
+.chart{width:100%;height:auto;display:block}
+.chart text{fill:var(--muted);font-family:var(--f-mono);font-size:11px}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart .axis{stroke:var(--muted);stroke-width:1}
+.note{font-size:12.5px;color:var(--muted);margin-top:8px}
+table.t{width:100%;border-collapse:collapse;font-size:13.5px}
+table.t th,table.t td{border-bottom:1px solid var(--line);padding:6px 6px;text-align:left;vertical-align:top}
+table.t th{font-weight:600;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+table.t td.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.tw{overflow-x:auto}
+.bars{display:grid;gap:8px}
+.bar{display:grid;grid-template-columns:150px minmax(0,1fr) 84px;gap:8px;align-items:center;font-size:13.5px}
+@media (max-width:480px){.bar{grid-template-columns:110px minmax(0,1fr) 70px}}
+.bar .track{height:14px;background:var(--bg);border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.bar .fill{height:100%;background:var(--accent)}
+.bar .num{font-family:var(--f-mono);text-align:right;font-variant-numeric:tabular-nums}
+#hold3d{width:100%;aspect-ratio:16/8;max-width:100%;border:1px solid var(--line);border-radius:var(--r);background:var(--bg);touch-action:none;display:block}
+.palette{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px}
+.palette button{display:flex;align-items:center;gap:8px;font:inherit;font-size:13px;text-align:left;padding:6px 8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:var(--r);cursor:pointer}
+.palette button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);font-weight:600}
+.sw{width:14px;height:14px;border-radius:3px;flex:none;border:1px solid rgba(0,0,0,.25)}
+.issues{list-style:none;padding:0;margin:0;display:grid;gap:6px}
+.issues li{font-size:13.5px;padding:6px 8px;border-radius:var(--r);border-left:3px solid var(--line);background:var(--bg)}
+.issues li.bad{border-left-color:var(--bad)} .issues li.warn{border-left-color:var(--warn)} .issues li.ok{border-left-color:var(--ok)}
+.btn{font:inherit;font-size:14px;font-weight:600;padding:7px 14px;border-radius:var(--r);border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+footer{margin-top:28px;color:var(--muted);font-size:12.5px;border-top:1px solid var(--line);padding-top:12px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="code">Для службы грузовых перевозок · коды PER / PES / PEP / PEF / PIL</div>
+      <h1>Планировщик холодовой цепи</h1>
+      <p>Рабочий инструмент службы грузовых перевозок: допустимое время груза на перроне, свободная емкость рейса, план размещения ULD с проверкой совместимости и экономика внедрения.</p>
+    </div>
+    <nav class="tabs" aria-label="Разделы">
+      <a href="#apron" data-v="apron">Перрон</a>
+      <a href="#capacity" data-v="capacity">Емкость рейса</a>
+      <a href="#hold" data-v="hold">План отсека</a>
+      <a href="#econ" data-v="econ">Экономика</a>
+    </nav>
+  </header>
+
+  <!-- ===================== ПЕРРОН ===================== -->
+  <section class="view" id="v-apron">
+    <div class="panel">
+      <h2>Условия на перроне</h2>
+      <div class="field"><label for="a-prod">Вид груза</label><select id="a-prod"></select></div>
+      <div class="field"><label for="a-clim">Аэропорт и сезон</label><select id="a-clim"></select></div>
+      <div class="field"><label for="a-t">Температура воздуха, °С</label><div class="row"><input id="a-t" type="range" min="-45" max="45" step="1"><span class="val" id="a-t-v"></span></div></div>
+      <div class="field"><label for="a-g">Солнечная радиация, Вт/м²</label><div class="row"><input id="a-g" type="range" min="0" max="1000" step="50"><span class="val" id="a-g-v"></span></div></div>
+      <div class="field"><label>Защита груза</label><div class="seg" id="a-prot"></div></div>
+      <div class="field"><label for="a-exp">Плановое время вне камеры, мин</label><div class="row"><input id="a-exp" type="range" min="5" max="240" step="5"><span class="val" id="a-exp-v"></span></div></div>
+    </div>
+    <div class="panel">
+      <div class="kpis">
+        <div class="kpi"><div class="k">До выхода из режима</div><div class="v" id="a-k1">–</div><div class="s" id="a-k1s"></div></div>
+        <div class="kpi"><div class="k">Норматив (запас 30 %)</div><div class="v" id="a-k2">–</div><div class="s">рекомендуемый предел для СГП</div></div>
+        <div class="kpi"><div class="k">Потеря срока годности</div><div class="v" id="a-k3">–</div><div class="s" id="a-k3s"></div></div>
+      </div>
+      <svg class="chart" id="a-chart" viewBox="0 0 720 300" role="img" aria-label="Температура продукта во времени"></svg>
+      <p class="note">Модель: нагрев наружного места груза по условной температуре «солнце – воздух», h = 17 Вт/(м²·К); для рыбы учтено таяние льда; потеря срока годности – модель Ратковского для рыбы, Q10 = 3,0 для ягод и 2,5 для цветов. Сплошная линия – выбранная защита, пунктир – без защиты.</p>
+    </div>
+  </section>
+
+  <!-- ===================== ЕМКОСТЬ ===================== -->
+  <section class="view" id="v-capacity" hidden>
+    <div class="panel">
+      <h2>Параметры рейса</h2>
+      <div class="field"><label for="c-ac">Тип ВС</label><select id="c-ac"></select></div>
+      <div class="field"><label for="c-lf">Загрузка салона, %</label><div class="row"><input id="c-lf" type="range" min="40" max="100" step="1"><span class="val" id="c-lf-v"></span></div></div>
+      <div class="field"><label for="c-bag">Багаж на пассажира, кг</label><div class="row"><input id="c-bag" type="range" min="5" max="25" step="0.5"><span class="val" id="c-bag-v"></span></div></div>
+      <div class="field"><label for="c-k">Эксплуатационные ограничения k</label><div class="row"><input id="c-k" type="range" min="0.7" max="1" step="0.01"><span class="val" id="c-k-v"></span></div></div>
+      <p class="note" id="c-src"></p>
+    </div>
+    <div class="panel">
+      <div class="kpis">
+        <div class="kpi"><div class="k">Свободный объем</div><div class="v" id="c-k1">–</div><div class="s">м³ после багажа</div></div>
+        <div class="kpi"><div class="k">Свободная масса</div><div class="v" id="c-k2">–</div><div class="s" id="c-k2s"></div></div>
+        <div class="kpi"><div class="k">Багаж</div><div class="v" id="c-k3">–</div><div class="s" id="c-k3s"></div></div>
+      </div>
+      <h3>Емкость под вид груза, кг на рейс</h3>
+      <div class="bars" id="c-bars"></div>
+      <h3>Разброс по 2000 смоделированных рейсов</h3>
+      <div class="tw"><table class="t" id="c-mc"></table></div>
+      <p class="note">Модель свободной емкости: объем и масса отсеков за вычетом багажа, ограничение по коммерческой загрузке ВС. Распределения: загрузка салона B(18; 2,6), багаж N(16; 3) кг, k ~ U(0,85; 1,0). Параметры отсеков – руководство m-06.В, п. 12.10.</p>
+    </div>
+  </section>
+
+  <!-- ===================== ПЛАН ОТСЕКА ===================== -->
+  <section class="view" id="v-hold" hidden>
+    <div class="panel">
+      <h2>Комплектование</h2>
+      <div class="field"><label for="h-ac">Тип ВС</label><select id="h-ac"></select></div>
+      <div class="field"><label>Груз для назначения позиции</label><div class="palette" id="h-pal"></div></div>
+      <div class="field"><label for="h-kg">Масса брутто ULD, кг</label><input id="h-kg" type="number" min="50" max="1588" step="10"></div>
+      <div class="btns"><button class="btn" id="h-sample" type="button">Загрузить пример плана</button><button class="btn ghost" id="h-clear" type="button">Очистить</button></div>
+      <p class="note">Нажмите на позицию контейнера AKE в схеме, чтобы назначить выбранный груз. Повторное нажатие тем же грузом освобождает позицию. Схему можно вращать, перетаскивая мышью или пальцем.</p>
+    </div>
+    <div class="panel">
+      <canvas id="hold3d" aria-label="Трехмерная схема нижней палубы с позициями AKE"></canvas>
+      <div class="kpis" style="margin-top:12px">
+        <div class="kpi"><div class="k">Передний отсек</div><div class="v" id="h-k1">–</div><div class="s" id="h-k1s"></div></div>
+        <div class="kpi"><div class="k">Задний отсек</div><div class="v" id="h-k2">–</div><div class="s" id="h-k2s"></div></div>
+        <div class="kpi"><div class="k">Скоропортящийся груз</div><div class="v" id="h-k3">–</div><div class="s">в позициях AKE</div></div>
+      </div>
+      <h3>Проверка плана</h3>
+      <ul class="issues" id="h-issues"></ul>
+    </div>
+  </section>
+
+  <!-- ===================== ЭКОНОМИКА ===================== -->
+  <section class="view" id="v-econ" hidden>
+    <div class="panel">
+      <h2>Допущения</h2>
+      <div class="field"><label for="e-pot">Потенциальная выручка, млн руб./год</label><div class="row"><input id="e-pot" type="range" min="30" max="200" step="1"><span class="val" id="e-pot-v"></span></div></div>
+      <div class="field"><label for="e-real">Реализация потенциала к 4-му году, %</label><div class="row"><input id="e-real" type="range" min="25" max="90" step="1"><span class="val" id="e-real-v"></span></div></div>
+      <div class="field"><label for="e-m">Маржинальная доходность, %</label><div class="row"><input id="e-m" type="range" min="20" max="70" step="1"><span class="val" id="e-m-v"></span></div></div>
+      <div class="field"><label for="e-capex">Капитальные затраты, млн руб.</label><div class="row"><input id="e-capex" type="range" min="3" max="20" step="0.1"><span class="val" id="e-capex-v"></span></div></div>
+      <div class="field"><label for="e-opex">Постоянные расходы, млн руб./год</label><div class="row"><input id="e-opex" type="range" min="1" max="10" step="0.1"><span class="val" id="e-opex-v"></span></div></div>
+      <div class="field"><label for="e-r">Ставка дисконтирования, %</label><div class="row"><input id="e-r" type="range" min="10" max="30" step="0.5"><span class="val" id="e-r-v"></span></div></div>
+    </div>
+    <div class="panel">
+      <div class="kpis">
+        <div class="kpi"><div class="k">NPV, 5 лет</div><div class="v" id="e-k1">–</div><div class="s">млн руб.</div></div>
+        <div class="kpi"><div class="k">IRR</div><div class="v" id="e-k2">–</div><div class="s" id="e-k2s"></div></div>
+        <div class="kpi"><div class="k">Срок окупаемости</div><div class="v" id="e-k3">–</div><div class="s">дисконтированный, лет</div></div>
+      </div>
+      <svg class="chart" id="e-chart" viewBox="0 0 720 280" role="img" aria-label="Накопленный дисконтированный денежный поток"></svg>
+      <div class="tw"><table class="t" id="e-tab"></table></div>
+      <p class="note">Базовые значения – расчетный сценарий исследования: реализация без мероприятий 20 % потенциала, траектория 28 → 40 → 50 → 55 → 55 % (масштабируется ползунком), снижение претензий – по результатам имитационной модели.</p>
+    </div>
+  </section>
+
+  <footer>Независимая учебно-исследовательская разработка; не является официальным ресурсом ООО «Северный Ветер». Расчетные модели основаны на исследовании «Совершенствование организации перевозок скоропортящихся грузов в авиакомпании ООО «Северный Ветер»» (2026). Значения по умолчанию – примеры для демонстрации, а не фактические данные авиакомпании.</footer>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script>window.THREE||document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>')</script>
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s);
+const fmt=(x,d=0)=>Number(x).toLocaleString('ru-RU',{minimumFractionDigits:d,maximumFractionDigits:d});
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+/* ---------------- routing ---------------- */
+const views=['apron','capacity','hold','econ'];
+function route(){
+  let v=(location.hash||'#apron').slice(1); if(!views.includes(v)) v='apron';
+  views.forEach(x=>{$('#v-'+x).hidden=(x!==v); const a=document.querySelector(`nav a[data-v="${x}"]`); if(x===v)a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current');});
+  if(v==='hold') initHold(); else if(v==='apron') drawApron(); else if(v==='econ') drawEcon();
+}
+window.addEventListener('hashchange',route);
+
+/* ---------------- ПЕРРОН ---------------- */
+const PROD={
+  fish:{n:'Охлажденная рыба (со льдом)',m:20,c:3600,ice:3,T0:0.5,Tmax:5,Tmin:-1.5,A:0.30,kind:'fish'},
+  berry:{n:'Ягоды (черешня, клубника)',m:5,c:3800,ice:0,T0:1,Tmax:6,Tmin:-1,A:0.22,kind:'berry'},
+  flower:{n:'Срезанные цветы',m:8,c:3600,ice:0,T0:2,Tmax:8,Tmin:0,A:0.40,kind:'flower'}
+};
+const PROT={open:{n:'Без защиты',U:6,a:0.65},blanket:{n:'Термопокрывало',U:2,a:0.12},liner:{n:'Покрывало + вкладыш',U:0.8,a:0.12}};
+const CLIM={tas_d:['Ташкент, июль, день',38,850],tas_n:['Ташкент, июль, ночь',25,0],mow:['Москва, июль, день',26,650],khv:['Хабаровск, август, день',28,700],yks:['Якутск, январь',-40,0],custom:['Свои условия',20,400]};
+const A={prod:'berry',clim:'tas_d',prot:'blanket',T:38,G:850,exp:30};
+function sim(p,pr,Ta,G,minutes){
+  let T=p.T0,ice=p.ice; const Teq=Ta+pr.a*G/17, UA=pr.U*p.A, C=p.m*p.c, out=[T];
+  for(let i=0;i<minutes;i++){for(let k=0;k<6;k++){let q=UA*(Teq-T)*10; if(ice>0&&q>0&&T>=0){const melt=Math.min(ice,q/334000);ice-=melt;q-=melt*334000;T=Math.max(T,0);} T+=q/C;} out.push(T);}
+  return out;
+}
+function tlimit(p,tr,Ta){for(let i=0;i<tr.length;i++){if(Ta>p.T0&&tr[i]>p.Tmax)return i; if(Ta<=p.T0&&tr[i]<p.Tmin)return i;} return null;}
+function loss(p,tr,mins){let s=0;for(let i=1;i<=mins&&i<tr.length;i++){const t=tr[i]; s+= p.kind==='fish'?Math.pow(1+0.1*Math.max(t,-1),2):Math.pow(p.kind==='berry'?3:2.5,t/10);} const SL0=(p.kind==='fish'?12:p.kind==='berry'?6:7)*1440; return s/SL0*100;}
+function initApron(){
+  const ps=$('#a-prod'); Object.entries(PROD).forEach(([k,v])=>ps.add(new Option(v.n,k))); ps.value=A.prod;
+  const cs=$('#a-clim'); Object.entries(CLIM).forEach(([k,v])=>cs.add(new Option(v[0],k))); cs.value=A.clim;
+  const seg=$('#a-prot'); Object.entries(PROT).forEach(([k,v])=>{const b=document.createElement('button');b.type='button';b.textContent=v.n;b.dataset.k=k;b.setAttribute('aria-pressed',k===A.prot);b.onclick=()=>{A.prot=k;seg.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.k===k));drawApron();};seg.appendChild(b);});
+  $('#a-t').value=A.T; $('#a-g').value=A.G; $('#a-exp').value=A.exp;
+  ps.onchange=()=>{A.prod=ps.value;drawApron();};
+  cs.onchange=()=>{A.clim=cs.value; if(cs.value!=='custom'){A.T=CLIM[cs.value][1];A.G=CLIM[cs.value][2];$('#a-t').value=A.T;$('#a-g').value=A.G;} drawApron();};
+  $('#a-t').oninput=e=>{A.T=+e.target.value;A.clim='custom';cs.value='custom';drawApron();};
+  $('#a-g').oninput=e=>{A.G=+e.target.value;A.clim='custom';cs.value='custom';drawApron();};
+  $('#a-exp').oninput=e=>{A.exp=+e.target.value;drawApron();};
+}
+function drawApron(){
+  const p=PROD[A.prod], H=240;
+  $('#a-t-v').textContent=fmt(A.T)+' °С'; $('#a-g-v').textContent=fmt(A.G); $('#a-exp-v').textContent=A.exp+' мин';
+  const tr=sim(p,PROT[A.prot],A.T,A.G,Math.max(H,1440)), tro=sim(p,PROT.open,A.T,A.G,H);
+  const tl=tlimit(p,tr,A.T);
+  $('#a-k1').textContent= tl===null?'> 24 ч':(tl>=120? fmt(tl/60,1)+' ч': tl+' мин');
+  $('#a-k1s').textContent= A.T>p.T0? `до +${p.Tmax} °С в толще продукта` : `до ${p.Tmin} °С (риск подмораживания)`;
+  const norm= tl===null? null : Math.max(5,Math.floor(tl*0.7/5)*5);
+  $('#a-k2').textContent= norm===null?'не ограничено': (norm>=120?fmt(norm/60,1)+' ч':norm+' мин');
+  const L=loss(p,tr,A.exp);
+  $('#a-k3').textContent=fmt(L,1)+' %';
+  const st = tl!==null && A.exp>tl ? ['bad','превышен предел'] : (norm!==null && A.exp>norm ? ['warn','выше норматива'] : ['ok','в пределах норматива']);
+  $('#a-k3s').innerHTML=`за ${A.exp} мин · <span class="pill ${st[0]}">${st[1]}</span>`;
+  // chart
+  const svg=$('#a-chart'), W=720,Hh=300,l=48,r=16,t=14,b=36, pw=W-l-r, ph=Hh-t-b;
+  const ys=[...tr.slice(0,H+1),...tro,p.Tmax,p.T0]; let ymin=Math.min(...ys,p.Tmin), ymax=Math.max(...ys);
+  ymin=Math.floor(ymin/2)*2; ymax=Math.ceil((ymax+0.5)/2)*2; if(ymax-ymin<6) ymax=ymin+6;
+  const X=m=>l+m/H*pw, Y=v=>t+(1-(v-ymin)/(ymax-ymin))*ph;
+  let g='';
+  const step=Math.max(2,Math.ceil((ymax-ymin)/6/2)*2);
+  for(let v=ymin;v<=ymax;v+=step){g+=`<line class="grid" x1="${l}" x2="${W-r}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${l-6}" y="${Y(v)+4}" text-anchor="end">${v}</text>`;}
+  for(let m=0;m<=H;m+=30){g+=`<text x="${X(m)}" y="${Hh-14}" text-anchor="middle">${m}</text>`;}
+  g+=`<text x="${W-r}" y="${Hh-2}" text-anchor="end">минуты</text><text x="${l}" y="10">°С</text>`;
+  const lim = A.T>p.T0? p.Tmax : p.Tmin;
+  g+=`<line x1="${l}" x2="${W-r}" y1="${Y(lim)}" y2="${Y(lim)}" stroke="${css('--bad')}" stroke-dasharray="6 4" stroke-width="1.5"/><text x="${W-r-4}" y="${Y(lim)-5}" text-anchor="end" style="fill:${css('--bad')}">предел ${lim>0?'+':''}${lim} °С</text>`;
+  g+=`<rect x="${l}" y="${t}" width="${X(Math.min(A.exp,H))-l}" height="${ph}" fill="${css('--accent-soft')}" opacity="0.55"/>`;
+  const path=a=>a.slice(0,H+1).map((v,i)=>(i?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1)).join(' ');
+  g+=`<path d="${path(tro)}" fill="none" stroke="${css('--muted')}" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+  g+=`<path d="${path(tr)}" fill="none" stroke="${css('--accent')}" stroke-width="2.5"/>`;
+  if(tl!==null&&tl<=H) g+=`<circle cx="${X(tl)}" cy="${Y(tr[tl])}" r="5" fill="${css('--bad')}"/>`;
+  g+=`<line class="axis" x1="${l}" x2="${l}" y1="${t}" y2="${t+ph}"/><line class="axis" x1="${l}" x2="${W-r}" y1="${t+ph}" y2="${t+ph}"/>`;
+  svg.innerHTML=g;
+}
+
+/* ---------------- ЕМКОСТЬ ---------------- */
+const AC={
+  'A321':{seats:220,V:50.89,M:10548,P:25000,uld:false,src:'кресел 220 (SeatMaps)'},
+  'A321neo':{seats:218,V:41.75,M:10371,P:25500,uld:false,src:'кресел 218 (SeatMaps)'},
+  'B737-800':{seats:189,V:40.0,M:7291,P:20500,uld:false,src:'кресел 189 – допущение'},
+  'A330-200':{seats:310,V:136.0,M:37578,P:45000,uld:true,src:'кресел 310 – допущение',fwd:16,aft:14,Mf:18869,Ma:15241},
+  'A330-300':{seats:379,V:147.0,M:42836,P:45000,uld:true,src:'кресел 379 (SeatMaps)',fwd:18,aft:14,Mf:20861,Ma:18507},
+  'B777-200ER':{seats:393,V:125.9,M:47494,P:54000,uld:true,src:'кресел 393 (SeatGuru)',fwd:18,aft:10,Mf:30612,Ma:12800},
+  'B777-300ER':{seats:450,V:177.9,M:80656,P:66000,uld:true,src:'кресел 450 – допущение',fwd:24,aft:18,Mf:40823,Ma:35751}
+};
+const DENS=[['Рыба охлажденная',350],['Ягоды и фрукты',220],['Срезанные цветы',110],['Генеральный груз',167]];
+const C={ac:'A330-200',lf:87,bag:16,k:0.92};
+function cap(ac,lf,bag,k){const pax=Math.floor(ac.seats*lf), bm=pax*bag, eta=ac.uld?0.8:0.75; const v=Math.max(ac.V*eta-bm/160,0); const m=Math.max(Math.min(ac.M*k-bm, ac.P*k-pax*84-bm),0); return {pax,bm,v,m};}
+function rbeta(a,b){const g=s=>{let x=0;for(let i=0;i<s;i++)x-=Math.log(Math.random());return x;}; // целые параметры приближенно
+  const x=gamma(a), y=gamma(b); return x/(x+y);}
+function gamma(k){ // Marsaglia–Tsang
+  if(k<1) return gamma(k+1)*Math.pow(Math.random(),1/k);
+  const d=k-1/3, c=1/Math.sqrt(9*d); for(;;){let x,v; do{x=randn();v=1+c*x;}while(v<=0); v=v*v*v; const u=Math.random(); if(u<1-0.0331*x*x*x*x) return d*v; if(Math.log(u)<0.5*x*x+d*(1-v+Math.log(v))) return d*v;}}
+function randn(){let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+function initCap(){
+  const s=$('#c-ac'); Object.keys(AC).forEach(k=>s.add(new Option(k,k))); s.value=C.ac;
+  $('#c-lf').value=C.lf; $('#c-bag').value=C.bag; $('#c-k').value=C.k;
+  s.onchange=()=>{C.ac=s.value;drawCap(true);};
+  $('#c-lf').oninput=e=>{C.lf=+e.target.value;drawCap(false);};
+  $('#c-bag').oninput=e=>{C.bag=+e.target.value;drawCap(false);};
+  $('#c-k').oninput=e=>{C.k=+e.target.value;drawCap(false);};
+  drawCap(true);
+}
+function drawCap(mc){
+  const ac=AC[C.ac]; $('#c-lf-v').textContent=C.lf+' %'; $('#c-bag-v').textContent=fmt(C.bag,1)+' кг'; $('#c-k-v').textContent=fmt(C.k,2);
+  $('#c-src').textContent=`Отсеки ${fmt(ac.V,1)} м³, предельная загрузка ${fmt(ac.M)} кг, макс. коммерческая загрузка ${fmt(ac.P)} кг; ${ac.src}.`;
+  const r=cap(ac,C.lf/100,C.bag,C.k);
+  $('#c-k1').textContent=fmt(r.v,1); $('#c-k2').textContent=fmt(r.m);
+  const lim = (ac.M*C.k-r.bm) < (ac.P*C.k-r.pax*84-r.bm) ? 'ограничение: отсеки' : 'ограничение: коммерческая загрузка ВС';
+  $('#c-k2s').textContent='кг · '+lim;
+  $('#c-k3').textContent=fmt(r.bm); $('#c-k3s').textContent=`кг · ${fmt(r.pax)} пассажиров`;
+  const vals=DENS.map(([n,rho])=>({n,val:Math.min(r.m,r.v*rho),vol:r.v*rho<r.m}));
+  const mx=Math.max(...vals.map(x=>x.val),1);
+  $('#c-bars').innerHTML=vals.map(x=>`<div class="bar"><span>${x.n}</span><div class="track"><div class="fill" style="width:${x.val/mx*100}%"></div></div><span class="num">${fmt(x.val)}</span></div><div class="note" style="margin:-6px 0 0 158px">${x.vol?'ограничивает объем':'ограничивает масса'}</div>`).join('');
+  if(mc){
+    const N=2000, res=DENS.map(()=>[]);
+    for(let i=0;i<N;i++){const lf=rbeta(18,2.6), bag=Math.min(25,Math.max(8,16+3*randn())), k=0.85+0.15*Math.random(); const q=cap(ac,lf,bag,k); DENS.forEach(([n,rho],j)=>res[j].push(Math.min(q.m,q.v*rho)));}
+    const pct=(a,p)=>{const s=a.slice().sort((x,y)=>x-y);return s[Math.floor(p*(s.length-1))];};
+    $('#c-mc').innerHTML='<thead><tr><th>Вид груза</th><th>P10, кг</th><th>P50, кг</th><th>P90, кг</th></tr></thead><tbody>'+
+      DENS.map(([n],j)=>`<tr><td>${n}</td><td class="n">${fmt(pct(res[j],0.1))}</td><td class="n">${fmt(pct(res[j],0.5))}</td><td class="n">${fmt(pct(res[j],0.9))}</td></tr>`).join('')+'</tbody>';
+  }
+}
+
+/* ---------------- ПЛАН ОТСЕКА (three.js) ---------------- */
+const CARGO={
+  bag:{n:'Багаж',v:'--c-bag',kg:520,per:false},
+  gen:{n:'Генеральный груз',v:'--c-gen',kg:700,per:false},
+  pes:{n:'PES рыба охлажденная',v:'--c-pes',kg:800,per:true},
+  pep:{n:'PEP ягоды, фрукты',v:'--c-pep',kg:420,per:true},
+  pef:{n:'PEF цветы',v:'--c-pef',kg:260,per:true},
+  pil:{n:'PIL фармацевтика',v:'--c-pil',kg:380,per:true},
+  fro:{n:'Мороженое на сухом льду (ICE)',v:'--c-fro',kg:900,per:true}
+};
+const Hs={ac:'A330-200',sel:'pes',kg:800,plan:{}};
+let three=null;
+function initHold(){
+  if(three){resize();return;}
+  const s=$('#h-ac'); ['A330-200','A330-300','B777-200ER','B777-300ER'].forEach(k=>s.add(new Option(k,k))); s.value=Hs.ac;
+  const pal=$('#h-pal'); Object.entries(CARGO).forEach(([k,c])=>{const b=document.createElement('button');b.type='button';b.dataset.k=k;b.innerHTML=`<span class="sw" style="background:var(${c.v})"></span>${c.n}`;b.setAttribute('aria-pressed',k===Hs.sel);b.onclick=()=>{Hs.sel=k;Hs.kg=c.kg;$('#h-kg').value=c.kg;pal.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.k===k));};pal.appendChild(b);});
+  $('#h-kg').value=Hs.kg; $('#h-kg').onchange=e=>{Hs.kg=Math.min(1588,Math.max(50,+e.target.value||0));e.target.value=Hs.kg;};
+  s.onchange=()=>{Hs.ac=s.value;Hs.plan={};build();sample();};
+  $('#h-sample').onclick=()=>{sample();};
+  $('#h-clear').onclick=()=>{Hs.plan={};paint();check();};
+  if(typeof THREE==='undefined'){ $('#hold3d').replaceWith(Object.assign(document.createElement('p'),{className:'note',textContent:'Трехмерная схема недоступна: не загрузилась библиотека three.js. Проверка плана работает по примеру.'})); three={fallback:true}; sample(); return; }
+  const cv=$('#hold3d');
+  const renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true,preserveDrawingBuffer:true});
+  renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+  const scene=new THREE.Scene();
+  const cam=new THREE.PerspectiveCamera(35,2,0.1,500);
+  scene.add(new THREE.AmbientLight(0xffffff,0.65)); const dl=new THREE.DirectionalLight(0xffffff,0.75); dl.position.set(10,20,15); scene.add(dl);
+  three={renderer,scene,cam,group:new THREE.Group(),meshes:[],rot:{th:-0.75,ph:0.62,dist:31},drag:null};
+  scene.add(three.group);
+  const ray=new THREE.Raycaster(), mouse=new THREE.Vector2();
+  cv.addEventListener('pointerdown',e=>{three.drag={x:e.clientX,y:e.clientY,th:three.rot.th,ph:three.rot.ph,moved:false};cv.setPointerCapture(e.pointerId);});
+  cv.addEventListener('pointermove',e=>{if(!three.drag)return;const dx=e.clientX-three.drag.x,dy=e.clientY-three.drag.y; if(Math.abs(dx)+Math.abs(dy)>4)three.drag.moved=true; three.rot.th=three.drag.th-dx*0.008; three.rot.ph=Math.min(1.3,Math.max(0.15,three.drag.ph+dy*0.006)); place(); render();});
+  cv.addEventListener('pointerup',e=>{const d=three.drag; three.drag=null; if(d&&!d.moved){const rc=cv.getBoundingClientRect(); mouse.x=((e.clientX-rc.left)/rc.width)*2-1; mouse.y=-((e.clientY-rc.top)/rc.height)*2+1; ray.setFromCamera(mouse,cam); const hit=ray.intersectObjects(three.meshes)[0]; if(hit){const id=hit.object.userData.id; const cur=Hs.plan[id]; if(cur&&cur.t===Hs.sel) delete Hs.plan[id]; else Hs.plan[id]={t:Hs.sel,kg:Hs.kg}; paint(); check();}}});
+  cv.addEventListener('wheel',e=>{e.preventDefault();three.rot.dist=Math.min(80,Math.max(22,three.rot.dist+e.deltaY*0.03));place();render();},{passive:false});
+  window.addEventListener('resize',resize);
+  build(); sample(); resize();
+}
+function place(){const r=three.rot; three.cam.position.set(r.dist*Math.cos(r.ph)*Math.sin(r.th), r.dist*Math.sin(r.ph), r.dist*Math.cos(r.ph)*Math.cos(r.th)); three.cam.lookAt(0,0,0);}
+function resize(){if(!three||three.fallback)return; const cv=three.renderer.domElement, w=cv.clientWidth, h=cv.clientHeight; if(!w)return; three.renderer.setSize(w,h,false); three.cam.aspect=w/h; three.cam.updateProjectionMatrix(); place(); render();}
+function render(){if(three&&!three.fallback)three.renderer.render(three.scene,three.cam);}
+function positions(){const a=AC[Hs.ac]; const out=[]; const rowsF=a.fwd/2, rowsA=a.aft/2, L=1.6, gap=4.5; const total=(rowsF+rowsA)*L+gap; let x0=-total/2;
+  for(let i=0;i<rowsF;i++)for(let s=0;s<2;s++)out.push({id:`${i+11}${s?'R':'L'}`,hold:'fwd',x:x0+i*L+L/2,z:s?0.8:-0.8,row:i,side:s});
+  x0+=rowsF*L+gap; for(let i=0;i<rowsA;i++)for(let s=0;s<2;s++)out.push({id:`${i+31}${s?'R':'L'}`,hold:'aft',x:x0+i*L+L/2,z:s?0.8:-0.8,row:i,side:s});
+  return out;}
+function build(){
+  if(!three||three.fallback){return;}
+  const g=three.group; while(g.children.length)g.remove(g.children[0]); three.meshes=[];
+  const P=positions(); const ext=Math.max(...P.map(p=>Math.abs(p.x)))+2;
+  // фюзеляж: полупрозрачный цилиндр
+  const cyl=new THREE.Mesh(new THREE.CylinderGeometry(2.8,2.8,ext*2,40,1,true),new THREE.MeshBasicMaterial({color:0x8899aa,wireframe:true,transparent:true,opacity:0.12}));
+  cyl.rotation.z=Math.PI/2; cyl.position.y=1.9; g.add(cyl);
+  const floor=new THREE.Mesh(new THREE.BoxGeometry(ext*2,0.05,3.6),new THREE.MeshLambertMaterial({color:0xb8c4cc,transparent:true,opacity:0.5})); floor.position.y=-0.03; g.add(floor);
+  // AKE с контуром: экструзия профиля
+  P.forEach(p=>{const sh=new THREE.Shape(); const w=1.53,h=1.63,c=0.45; sh.moveTo(0,0); sh.lineTo(w-c,0); sh.lineTo(w,c); sh.lineTo(w,h); sh.lineTo(0,h); sh.lineTo(0,0);
+    const geo=new THREE.ExtrudeGeometry(sh,{depth:1.5,bevelEnabled:false}); geo.translate(-w/2,0,-0.75);
+    const m=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color:0xdde3e8,transparent:true,opacity:0.35}));
+    m.rotation.y = p.side? Math.PI/2 : -Math.PI/2; m.position.set(p.x,0,p.z*1.0); m.userData={id:p.id,hold:p.hold,row:p.row,side:p.side};
+    const edges=new THREE.LineSegments(new THREE.EdgesGeometry(geo),new THREE.LineBasicMaterial({color:0x40505c})); m.add(edges);
+    g.add(m); three.meshes.push(m);});
+  place(); render();
+}
+function paint(){
+  if(three&&!three.fallback){three.meshes.forEach(m=>{const a=Hs.plan[m.userData.id]; if(a){m.material.color.set(css(CARGO[a.t].v)); m.material.opacity=0.95;} else {m.material.color.set(0xdde3e8); m.material.opacity=0.3;}}); render();}
+}
+function sample(){
+  const P=positions(); Hs.plan={};
+  const a=AC[Hs.ac]; const fw=P.filter(p=>p.hold==='fwd'), af=P.filter(p=>p.hold==='aft');
+  const seqF=['pes','pes','pes','pes','pep','pep','pil','gen','gen','gen','pef','gen'];
+  fw.forEach((p,i)=>{if(i<seqF.length){const t=seqF[i]; Hs.plan[p.id]={t,kg:CARGO[t].kg};}});
+  af.forEach((p,i)=>{const t= i<8?'bag':(i<10?'fro':null); if(t)Hs.plan[p.id]={t,kg:CARGO[t].kg};});
+  paint(); check();
+}
+function check(){
+  const a=AC[Hs.ac], P=positions(), byId={}; P.forEach(p=>byId[p.id]=p);
+  let mf=0,ma=0,per=0; const iss=[];
+  Object.entries(Hs.plan).forEach(([id,v])=>{const p=byId[id]; if(!p)return; if(p.hold==='fwd')mf+=v.kg; else ma+=v.kg; if(CARGO[v.t].per)per++;});
+  const nb=(p,q)=>p.hold===q.hold&&Math.abs(p.row-q.row)<=1;
+  const items=Object.entries(Hs.plan).map(([id,v])=>({p:byId[id],t:v.t})).filter(x=>x.p);
+  const pairs=new Set();
+  items.forEach(x=>items.forEach(y=>{if(x===y)return; const key=[x.p.id,y.p.id].sort().join('-'); if(pairs.has(key)||!nb(x.p,y.p))return; pairs.add(key);
+    if((x.t==='pef'&&y.t==='pep')) iss.push(['bad',`Цветы (${x.p.id}) рядом с фруктами (${y.p.id}): этилен ускоряет увядание. Разнесите позиции.`]);
+    if((x.t==='fro'&&(y.t==='pil'||y.t==='pep'||y.t==='pef'))) iss.push(['warn',`Сухой лед (${x.p.id}) рядом с ${CARGO[y.t].n} (${y.p.id}): риск подмораживания и учет CO₂ в отсеке.`]);
+  }));
+  items.filter(x=>CARGO[x.t].per&&x.p.hold==='aft'&&x.t!=='fro').forEach(x=>iss.push(['warn',`${CARGO[x.t].n} в заднем отсеке (${x.p.id}): выгрузка позднее, предусмотрите приоритет.`]));
+  const fishFar=items.filter(x=>x.t==='pes'&&x.p.hold==='fwd'&&x.p.row>3); if(fishFar.length) iss.push(['warn',`Рыба в дальних рядах переднего отсека (${fishFar.map(x=>x.p.id).join(', ')}): ставьте у двери, чтобы выгружать первой.`]);
+  const dry=items.filter(x=>x.t==='fro').length; if(dry) iss.push(['ok',`Сухой лед: ${dry} ULD. Укажите массу ICE в NOTOC и проверьте лимит по отсеку.`]);
+  if(mf>a.Mf) iss.push(['bad',`Передний отсек перегружен: ${fmt(mf)} кг при пределе ${fmt(a.Mf)} кг.`]);
+  if(ma>a.Ma) iss.push(['bad',`Задний отсек перегружен: ${fmt(ma)} кг при пределе ${fmt(a.Ma)} кг.`]);
+  if(Math.abs(mf-ma)>8000) iss.push(['warn',`Разница масс отсеков ${fmt(Math.abs(mf-ma))} кг: согласуйте с центровкой.`]);
+  if(per) iss.push(['ok',`Скоропортящийся груз на борту: оформите NOTOC с кодами PER и включите вентиляцию отсеков до загрузки.`]);
+  if(!iss.filter(x=>x[0]!=='ok').length) iss.unshift(['ok','Нарушений совместимости и перегрузки не найдено.']);
+  $('#h-issues').innerHTML=iss.map(([c,t])=>`<li class="${c}">${t}</li>`).join('');
+  $('#h-k1').textContent=fmt(mf)+' кг'; $('#h-k1s').innerHTML=`предел ${fmt(a.Mf)} · <span class="pill ${mf>a.Mf?'bad':'ok'}">${Math.round(mf/a.Mf*100)} %</span>`;
+  $('#h-k2').textContent=fmt(ma)+' кг'; $('#h-k2s').innerHTML=`предел ${fmt(a.Ma)} · <span class="pill ${ma>a.Ma?'bad':'ok'}">${Math.round(ma/a.Ma*100)} %</span>`;
+  $('#h-k3').textContent=per;
+}
+
+/* ---------------- ЭКОНОМИКА ---------------- */
+const E={pot:94.2,real:55,m:45,capex:9.145,opex:3.83,r:18};
+const PATH=[0.28,0.40,0.50,0.55,0.55];
+function econ(){
+  const k=E.real/55; const cfs=[-E.capex]; const rows=[];
+  for(let y=0;y<5;y++){const re=Math.min(1,PATH[y]*k); const dr=(re-0.20)*E.pot; const dm=dr*E.m/100; const tons=re*395.3; const claims=tons*1000*0.653*0.10*600/1e6; const sla=tons*1000*12/1e6; const cf=dm+claims-E.opex-sla; cfs.push(cf); rows.push({y:y+1,re,dr,dm,claims,sla,cf});}
+  const npv=(r)=>cfs.reduce((s,c,t)=>s+c/Math.pow(1+r,t),0);
+  let lo=-0.9,hi=5; for(let i=0;i<120;i++){const mid=(lo+hi)/2; if(npv(mid)>0)lo=mid; else hi=mid;}
+  const r=E.r/100; let acc=0,dpp=null; const cum=[]; cfs.forEach((c,t)=>{const d=c/Math.pow(1+r,t); if(dpp===null&&t>0&&acc+d>=0) dpp=t-1+(-acc)/d; acc+=d; cum.push(acc);});
+  return {cfs,rows,npv:npv(r),irr:npv(-0.89)>0&&npv(4.99)<0?(lo+hi)/2:null,dpp,cum};
+}
+function initEcon(){
+  const ids={pot:['e-pot',1,' млн'],real:['e-real',0,' %'],m:['e-m',0,' %'],capex:['e-capex',1,' млн'],opex:['e-opex',1,' млн'],r:['e-r',1,' %']};
+  Object.entries(ids).forEach(([k,[id]])=>{const el=$('#'+id); el.value=E[k]; el.oninput=ev=>{E[k]=+ev.target.value;drawEcon();};});
+  initEcon.ids=ids;
+}
+function drawEcon(){
+  Object.entries(initEcon.ids).forEach(([k,[id,d,u]])=>$('#'+id+'-v').textContent=fmt(E[k],d)+u);
+  const R=econ();
+  $('#e-k1').textContent=fmt(R.npv,1); $('#e-k1').style.color= R.npv>=0?css('--ok'):css('--bad');
+  $('#e-k2').textContent= R.irr===null?'–':fmt(R.irr*100,1)+' %'; $('#e-k2s').textContent= R.irr!==null&&R.irr>E.r/100?'выше ставки дисконтирования':'ниже ставки дисконтирования';
+  $('#e-k3').textContent= R.dpp===null?'> 5':fmt(R.dpp,1);
+  const svg=$('#e-chart'),W=720,H=280,l=56,rr=16,t=16,b=34,pw=W-l-rr,ph=H-t-b;
+  const vals=R.cum; let mn=Math.min(0,...vals), mx=Math.max(0,...vals); const span=(mx-mn)||1; mn-=span*0.08; mx+=span*0.08;
+  const X=i=>l+(i+0.5)*pw/vals.length, Y=v=>t+(1-(v-mn)/(mx-mn))*ph, bw=pw/vals.length*0.55;
+  let g=''; const st=Math.pow(10,Math.floor(Math.log10(span/4))); const step=[1,2,5,10].map(m=>m*st).find(s=>span/s<=6)||st*10;
+  for(let v=Math.ceil(mn/step)*step;v<=mx;v+=step){g+=`<line class="grid" x1="${l}" x2="${W-rr}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${l-6}" y="${Y(v)+4}" text-anchor="end">${fmt(v)}</text>`;}
+  g+=`<line class="axis" x1="${l}" x2="${W-rr}" y1="${Y(0)}" y2="${Y(0)}"/>`;
+  vals.forEach((v,i)=>{const y0=Y(0),y1=Y(v); g+=`<rect x="${X(i)-bw/2}" y="${Math.min(y0,y1)}" width="${bw}" height="${Math.abs(y1-y0)}" fill="${v>=0?css('--accent'):css('--bad')}" opacity="0.85"/><text x="${X(i)}" y="${H-12}" text-anchor="middle">${i===0?'0 (инвест.)':i+'-й год'}</text><text x="${X(i)}" y="${v>=0?y1-5:y1+13}" text-anchor="middle" style="fill:var(--ink)">${fmt(v,1)}</text>`;});
+  g+=`<text x="${l}" y="11">млн руб., накопленный дисконтированный поток</text>`;
+  svg.innerHTML=g;
+  $('#e-tab').innerHTML='<thead><tr><th>Год</th><th>Реализация</th><th>Прирост выручки</th><th>Маржа</th><th>Снижение претензий</th><th>Поток</th></tr></thead><tbody>'+
+    R.rows.map(x=>`<tr><td>${x.y}</td><td class="n">${fmt(x.re*100)} %</td><td class="n">${fmt(x.dr,1)}</td><td class="n">${fmt(x.dm,1)}</td><td class="n">${fmt(x.claims,1)}</td><td class="n">${fmt(x.cf,1)}</td></tr>`).join('')+'</tbody>';
+}
+
+initApron(); initCap(); initEcon(); route();
+if(window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>{route(); paint();});
+})();
+</script>
+
+</body>
+</html>
