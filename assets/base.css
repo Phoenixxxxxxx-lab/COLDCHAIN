@@ -1,0 +1,146 @@
+/* ============================================================
+   Общие стили: шрифт, цвета, «жидкое стекло», переключатели
+   Шрифт Montserrat (SIL Open Font License 1.1), см. fonts/OFL-Montserrat.txt
+   ============================================================ */
+@font-face{font-family:"Montserrat";font-style:normal;font-weight:100 900;font-display:swap;
+  src:url("fonts/montserrat-cyrillic-wght-normal.woff2") format("woff2-variations"),url("fonts/montserrat-cyrillic-wght-normal.woff2") format("woff2");
+  unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:"Montserrat";font-style:normal;font-weight:100 900;font-display:swap;
+  src:url("fonts/montserrat-latin-wght-normal.woff2") format("woff2-variations"),url("fonts/montserrat-latin-wght-normal.woff2") format("woff2");
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Montserrat";font-style:italic;font-weight:100 900;font-display:swap;
+  src:url("fonts/montserrat-cyrillic-wght-italic.woff2") format("woff2-variations"),url("fonts/montserrat-cyrillic-wght-italic.woff2") format("woff2");
+  unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}
+@font-face{font-family:"Montserrat";font-style:italic;font-weight:100 900;font-display:swap;
+  src:url("fonts/montserrat-latin-wght-italic.woff2") format("woff2-variations"),url("fonts/montserrat-latin-wght-italic.woff2") format("woff2");
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+
+:root{
+  --font:"Montserrat",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  --brand:#CE1F2C; --brand-deep:#9E1420; --brand-ink:#EAEAEA;
+  /* светлая (белая) тема */
+  --bg:#F2F2F3; --bg-2:#E6E6E8; --panel:rgba(255,255,255,.78); --panel-solid:#FFFFFF;
+  --ink:#0E0E10; --muted:#5E5E66; --line:rgba(14,14,16,.10); --line-2:rgba(14,14,16,.18);
+  --accent:#0E0E10; --accent-ink:#FFFFFF; --soft:rgba(14,14,16,.06);
+  --ok:#1F7A47; --warn:#9A6408; --bad:#C0272F;
+  --ok-soft:rgba(31,122,71,.12); --warn-soft:rgba(154,100,8,.13); --bad-soft:rgba(192,39,47,.12);
+  --glass-bg:linear-gradient(180deg,rgba(255,255,255,.78),rgba(255,255,255,.46));
+  --glass-rim:rgba(255,255,255,.95); --glass-rim-2:rgba(14,14,16,.10);
+  --glass-shadow:0 1px 1px rgba(0,0,0,.05),0 10px 28px -10px rgba(0,0,0,.28);
+  --glass-hi:rgba(255,255,255,.85);
+  --thumb-bg:linear-gradient(180deg,#FFFFFF,#F1F1F3);
+  --thumb-shadow:0 1px 2px rgba(0,0,0,.12),0 6px 16px -4px rgba(0,0,0,.25);
+  color-scheme:light;
+}
+/* темная тема: черно-белая */
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#08080A; --bg-2:#141417; --panel:rgba(24,24,27,.72); --panel-solid:#141417;
+  --ink:#F3F3F4; --muted:#A1A1AA; --line:rgba(255,255,255,.10); --line-2:rgba(255,255,255,.20);
+  --accent:#F3F3F4; --accent-ink:#08080A; --soft:rgba(255,255,255,.07);
+  --ok:#6FCF97; --warn:#E8B04B; --bad:#FF6B6B;
+  --ok-soft:rgba(111,207,151,.14); --warn-soft:rgba(232,176,75,.14); --bad-soft:rgba(255,107,107,.14);
+  --glass-bg:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.04));
+  --glass-rim:rgba(255,255,255,.38); --glass-rim-2:rgba(255,255,255,.06);
+  --glass-shadow:0 1px 1px rgba(0,0,0,.4),0 12px 30px -10px rgba(0,0,0,.7);
+  --glass-hi:rgba(255,255,255,.35);
+  --thumb-bg:linear-gradient(180deg,#56565C,#323237);
+  --thumb-shadow:0 1px 2px rgba(0,0,0,.5),0 8px 18px -6px rgba(0,0,0,.8);
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#08080A; --bg-2:#141417; --panel:rgba(24,24,27,.72); --panel-solid:#141417;
+  --ink:#F3F3F4; --muted:#A1A1AA; --line:rgba(255,255,255,.10); --line-2:rgba(255,255,255,.20);
+  --accent:#F3F3F4; --accent-ink:#08080A; --soft:rgba(255,255,255,.07);
+  --ok:#6FCF97; --warn:#E8B04B; --bad:#FF6B6B;
+  --ok-soft:rgba(111,207,151,.14); --warn-soft:rgba(232,176,75,.14); --bad-soft:rgba(255,107,107,.14);
+  --glass-bg:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.04));
+  --glass-rim:rgba(255,255,255,.38); --glass-rim-2:rgba(255,255,255,.06);
+  --glass-shadow:0 1px 1px rgba(0,0,0,.4),0 12px 30px -10px rgba(0,0,0,.7);
+  --glass-hi:rgba(255,255,255,.35);
+  --thumb-bg:linear-gradient(180deg,#56565C,#323237);
+  --thumb-shadow:0 1px 2px rgba(0,0,0,.5),0 8px 18px -6px rgba(0,0,0,.8);
+  color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{margin:0}
+[hidden]{display:none!important}
+body{font-family:var(--font);font-feature-settings:"tnum" 1,"lnum" 1}
+button,input,select,textarea{font:inherit;color:inherit}
+
+/* ---------- жидкое стекло ---------- */
+.glass{
+  position:relative;isolation:isolate;
+  background:var(--glass-bg);
+  -webkit-backdrop-filter:blur(14px) saturate(180%);backdrop-filter:blur(14px) saturate(180%);
+  border-radius:999px;
+  box-shadow:inset 0 1px 0 var(--glass-hi),inset 0 -1px 0 var(--glass-rim-2),var(--glass-shadow);
+}
+.glass::before{ /* блик, следующий за указателем */
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:-1;
+  background:radial-gradient(160px 90px at var(--mx,30%) var(--my,0%),var(--glass-hi),transparent 70%);
+  opacity:.55;transition:opacity .3s;
+}
+.glass::after{ /* светлый ободок */
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;padding:1px;
+  background:linear-gradient(135deg,var(--glass-rim),transparent 38%,transparent 62%,var(--glass-rim));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;
+  mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);
+}
+
+/* кнопки */
+.gbtn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:44px;padding:0 20px;border:0;cursor:pointer;
+  font-weight:650;font-size:14.5px;letter-spacing:.01em;color:var(--ink);text-decoration:none;
+  transition:transform .35s cubic-bezier(.3,1.7,.5,1),box-shadow .2s;
+  -webkit-tap-highlight-color:transparent;user-select:none;touch-action:manipulation;
+}
+.gbtn:hover::before{opacity:.9}
+.gbtn:active,.gbtn.pressed{transform:scale(1.06)}
+.gbtn.icon{width:44px;padding:0;border-radius:50%}
+.gbtn.icon svg{width:20px;height:20px}
+.gbtn.solid{background:var(--accent);color:var(--accent-ink)}
+.gbtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.gbtn:focus-visible,.gseg button:focus-visible,input[type=range]:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+
+/* ---------- сегментный переключатель со «стеклянным» бегунком ----------
+   бегунок можно схватить и вести пальцем или мышью, он прилипает к ближайшему варианту */
+.gseg{
+  position:relative;display:flex;flex-wrap:wrap;gap:2px;padding:4px;border-radius:26px;
+  touch-action:pan-y;user-select:none;-webkit-user-select:none;
+}
+.gseg.tabs{border-radius:999px}
+.gseg button{
+  position:relative;z-index:1;border:0;background:transparent;cursor:pointer;
+  min-height:38px;padding:0 16px;border-radius:999px;font-weight:600;font-size:13.5px;color:var(--muted);
+  display:inline-flex;align-items:center;gap:8px;white-space:nowrap;transition:color .25s;
+  -webkit-tap-highlight-color:transparent;
+}
+.gseg button[aria-checked="true"],.gseg button.near{color:var(--ink)}
+.gseg button:hover{color:var(--ink)}
+.gseg .gthumb{
+  position:absolute;left:0;top:0;z-index:0;border-radius:999px;pointer-events:none;
+  background:var(--thumb-bg);box-shadow:inset 0 1px 0 rgba(255,255,255,.9),var(--thumb-shadow);
+  transition:transform .45s cubic-bezier(.3,1.35,.45,1),width .45s cubic-bezier(.3,1.35,.45,1),height .3s;
+  will-change:transform;
+}
+.gseg.dragging .gthumb{transition:width .2s,height .2s;box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 14px 30px -6px rgba(0,0,0,.35)}
+.gseg.dragging{cursor:grabbing}
+.gseg .sw{width:12px;height:12px;border-radius:50%;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.25) inset}
+
+/* ---------- ползунки ---------- */
+input[type=range]{
+  -webkit-appearance:none;appearance:none;width:100%;height:30px;background:transparent;margin:0;cursor:pointer;
+  --p:50%;touch-action:pan-y;
+}
+input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:99px;
+  background:linear-gradient(90deg,var(--ink) 0 var(--p),var(--soft) var(--p) 100%);box-shadow:inset 0 0 0 1px var(--line)}
+input[type=range]::-moz-range-track{height:8px;border-radius:99px;background:var(--soft);box-shadow:inset 0 0 0 1px var(--line)}
+input[type=range]::-moz-range-progress{height:8px;border-radius:99px;background:var(--ink)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;margin-top:-10px;border-radius:50%;border:0;
+  background:var(--thumb-bg);box-shadow:inset 0 1px 0 rgba(255,255,255,.95),0 0 0 .5px rgba(0,0,0,.12),var(--thumb-shadow);
+  transition:transform .3s cubic-bezier(.3,1.7,.5,1)}
+input[type=range]:active::-webkit-slider-thumb{transform:scale(1.22)}
+input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;border:0;
+  background:var(--thumb-bg);box-shadow:inset 0 1px 0 rgba(255,255,255,.95),0 0 0 .5px rgba(0,0,0,.12),var(--thumb-shadow)}
+
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
