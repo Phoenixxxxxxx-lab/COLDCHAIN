@@ -21,6 +21,7 @@ const TAIL777=[[54,3.1,0],[57,3.0,.12],[60,2.65,.38],[63,2.2,.68],[66,1.7,.98],[
 function cfg777(v){
   const r3=v==='300', dW=r3?0:-5.3, dT=r3?0:-10.1, L=r3?73.9:63.8;
   return {L,R:3.1,YC:6.2,floorD:2.6,nose:7.0,cyl:54+dT,tail:TAIL777.map(([a,b,c])=>[a+dT,b,c]),winH:.85,winEnd:59.2+dT,
+    cockpit:{hb:1.42,s0:2.0,slope:.06,hh:.70,sEnd:4.3,rake:.6,p1:2.85,sDiv:3.6,prake:-.18,slant:0},
     doors: r3?[7.3,19.4,33.4,50.0,61.0]:[7.3,16.2,36.8,50.9],
     cargo: r3?[{s1:11.2,s2:13.9,h1:-1.05,h2:-2.72},{s1:50.8,s2:52.6,h1:-1.05,h2:-2.62},{s1:55.6,s2:56.75,h1:-1.45,h2:-2.3}]
              :[{s1:11.2,s2:13.9,h1:-1.05,h2:-2.72},{s1:40.6,s2:42.4,h1:-1.05,h2:-2.62},{s1:45.4,s2:46.55,h1:-1.45,h2:-2.3}],
@@ -41,6 +42,7 @@ function cfg330(v){
   const r3=v==='300', dW=r3?0:-2.9, dT=r3?0:-4.87, L=r3?63.66:58.82, k=.91, cyl=45.6+dT;
   const Y=5.25;
   return {L,R:2.82,YC:Y,floorD:2.3,nose:6.0,cyl,tail:TAIL777.map(([a,b,c])=>[cyl+(a-54)*k,b*k,c*k]),winH:.75,winEnd:53+dT,
+    cockpit:{hb:1.08,s0:1.8,slope:.05,hh:.62,sEnd:3.95,rake:.15,p1:2.5,sDiv:3.15,prake:-.15,slant:.45},
     doors: r3?[6.0,17.0,35.6,51.0]:[6.0,14.1,32.7,46.1],
     cargo: r3?[{s1:8.8,s2:11.5,h1:-.95,h2:-2.4},{s1:41.6,s2:44.3,h1:-.95,h2:-2.35},{s1:46.4,s2:47.35,h1:-1.3,h2:-2.0}]
              :[{s1:8.8,s2:11.5,h1:-.95,h2:-2.4},{s1:38.8,s2:41.5,h1:-.95,h2:-2.35},{s1:42.3,s2:43.25,h1:-1.3,h2:-2.0}],
@@ -109,11 +111,24 @@ function liveryTexture(renderer){
   g.strokeStyle='#9DA3AB'; g.lineWidth=3;
   doors.forEach(s=>[1,-1].forEach(side=>{const kr=R0/3.1, t1=thetaAt(s,1.08*kr), t2=thetaAt(s,-0.82*kr); let a=side>0?t1:2*Math.PI-t2, b=side>0?t2:2*Math.PI-t1;
     rr(U(s-0.53),V(a),U(1.07),V(b)-V(a),10); g.stroke();}));
-  // остекление кабины
-  g.fillStyle='#1E2329';
-  [[0.07,0.43],[0.47,0.79],[0.83,1.07]].forEach(([a,b],i)=>[1,-1].forEach(side=>{
-    const s0=2.3+i*0.22, s1=3.4+i*0.1; const p=[[s0+0.14,a],[s1-0.1,a],[s1,b],[s0,b]];
-    g.beginPath(); p.forEach(([s,th],k)=>{const t=side>0?th:2*Math.PI-th; const x=U(s), y=V(t); k?g.lineTo(x,y):g.moveTo(x,y);}); g.closePath(); g.fill();}));
+  // остекление кабины: сплошная полоса на высоте hb..ht над осью, разбитая тонкими переплетами
+  {
+    const K=CFG.cockpit, img=g.getImageData(0,0,Math.ceil(U(K.sEnd+0.4)),H), d=img.data, w=img.width;
+    for(let px=0;px<w;px++){const s=px/W*L; const f=fus(s); if(f.r<0.3) continue;
+      const hb=K.hb+K.slope*(s-K.s0), ht=hb+K.hh-(s>K.sDiv? K.slant*(s-K.sDiv):0);
+      for(let py=0;py<H;py++){
+        let th=py/H*2*Math.PI; if(th>Math.PI) th=2*Math.PI-th;
+        const h=f.dy+f.r*Math.cos(th); if(h<hb||h>ht||th>1.45) continue;
+        const sEnd=K.sEnd-K.rake*(ht-h); if(s>sEnd) continue;
+        const dh=h-hb, p1=K.p1-K.prake*dh, p2=K.sDiv-K.prake*dh;
+        const frame= th<0.03 || Math.abs(s-p1)<0.045 || Math.abs(s-p2)<0.045 || dh<0.035 || ht-h<0.035 || sEnd-s<0.045;
+        const i=(py*w+px)*4;
+        if(frame){d[i]=150;d[i+1]=156;d[i+2]=164;}
+        else{const k=(h-hb)/(ht-hb); d[i]=24+k*18; d[i+1]=30+k*22; d[i+2]=38+k*28;}
+        d[i+3]=255;
+      }}
+    g.putImageData(img,0,0);
+  }
   // проемы грузовых дверей (под створками)
   g.fillStyle='#1A1D21';
   CFG.cargo.forEach(d=>{const a=thetaAt(d.s1,d.h1), b=thetaAt(d.s1,d.h2); g.fillRect(U(d.s1),V(a),U(d.s2)-U(d.s1),V(b)-V(a));});
@@ -446,7 +461,7 @@ function create(o){
     const els=o.labels.children; if(!S.model) return;
     S.model.labels.forEach((l,i)=>{const el=els[i]; if(!el) return; v3.copy(l.p); v3.project(cam);
       const vis=v3.z<1 && Math.abs(v3.x)<1.1 && Math.abs(v3.y)<1.1 && (!l.door || Math.cos(S.rot.th)>0.15);
-      el.style.opacity= vis?1:0;
+      el.style.opacity= vis&&S.rot.dist>28?1:0;
       el.style.transform=`translate(${(v3.x*.5+.5)*w}px,${(-v3.y*.5+.5)*h}px) translate(-50%,-50%)`;});
   }
 
