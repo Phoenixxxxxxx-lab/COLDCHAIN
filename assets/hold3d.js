@@ -1,12 +1,14 @@
-/* Трехмерный вид: интерактивная модель Boeing 777-300ER с отсеками и контейнерами AKE.
-   Для остальных типов пока строится схема нижней палубы.
-   Размеры модели (м): длина 73,9, размах 64,8, высота 18,5, диаметр фюзеляжа 6,2 –
-   по открытым данным производителя; контуры сверены с чертежами в трех проекциях.
+/* Трехмерный вид: интерактивные модели Boeing 777-300ER и 777-200ER с отсеками и контейнерами AKE.
+   Для A330 пока строится схема нижней палубы.
+   Размеры (м): 777-300ER – длина 73,9, размах 64,8; 777-200ER – длина 63,8, размах 60,9;
+   высота 18,5, диаметр фюзеляжа 6,2 – по открытым данным производителя;
+   контуры сверены с чертежами в трех проекциях. 200ER короче на вставки 5,3 м перед крылом и 4,8 м за ним.
    Ось x направлена к носу, y вверх, z на правый борт (грузовые двери). */
 (function(){
 "use strict";
 const T=window.THREE;
-const L=73.9, YC=6.2, FLOOR=YC-2.6;
+const YC=6.2, FLOOR=YC-2.6;
+let L=73.9, CFG=null;
 const X=s=>L/2-s;                       // станция от носа -> мировая координата x
 const lerp=(a,b,k)=>a+(b-a)*k;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -15,7 +17,17 @@ const easeOut=k=>1-Math.pow(1-k,3);
 
 /* ---------- профиль фюзеляжа: радиус и смещение оси по станции ---------- */
 const NOSE=7.0, R0=3.1;
-const TAIL=[[54,3.1,0],[57,3.0,.12],[60,2.65,.38],[63,2.2,.68],[66,1.7,.98],[69,1.15,1.28],[71.5,.7,1.5],[73.2,.42,1.62],[73.9,.3,1.65]];
+const TAIL300=[[54,3.1,0],[57,3.0,.12],[60,2.65,.38],[63,2.2,.68],[66,1.7,.98],[69,1.15,1.28],[71.5,.7,1.5],[73.2,.42,1.62],[73.9,.3,1.65]];
+/* параметры типов: dW – сдвиг крыла и шасси, dT – сдвиг хвостовой части относительно 300ER, м */
+const TYPES={
+  'B777-300ER':{L:73.9,dW:0,dT:0,raked:true,doors:[7.3,19.4,33.4,50.0,61.0],
+    cargo:[{k:'fwd',s1:11.2,s2:13.9,h1:-1.05,h2:-2.72},{k:'aft',s1:50.8,s2:52.6,h1:-1.05,h2:-2.62},{k:'blk',s1:55.6,s2:56.75,h1:-1.45,h2:-2.3}],
+    fwdS:9.8,rowsF:12,aftS:40.6,rowsA:9,zones:[[9.7,28.95],[40.5,55.0],[55.0,58.2]]},
+  'B777-200ER':{L:63.8,dW:-5.3,dT:-10.1,raked:false,doors:[7.3,16.2,36.8,50.9],
+    cargo:[{k:'fwd',s1:11.2,s2:13.9,h1:-1.05,h2:-2.72},{k:'aft',s1:40.6,s2:42.4,h1:-1.05,h2:-2.62},{k:'blk',s1:45.4,s2:46.55,h1:-1.45,h2:-2.3}],
+    fwdS:9.8,rowsF:9,aftS:35.4,rowsA:5,zones:[[9.7,24.25],[35.3,43.45],[43.45,47.6]]}
+};
+let TAIL=TAIL300, CYL=54;
 function pchip(keys,idx){ // монотонная кубическая интерполяция
   const xs=keys.map(k=>k[0]), ys=keys.map(k=>k[idx]), n=xs.length, d=[], m=[];
   for(let i=0;i<n-1;i++) d.push((ys[i+1]-ys[i])/(xs[i+1]-xs[i]));
@@ -25,10 +37,11 @@ function pchip(keys,idx){ // монотонная кубическая инте�
     let i=0; while(s>xs[i+1]) i++; const h=xs[i+1]-xs[i], t=(s-xs[i])/h, t2=t*t, t3=t2*t;
     return (2*t3-3*t2+1)*ys[i]+(t3-2*t2+t)*h*m[i]+(-2*t3+3*t2)*ys[i+1]+(t3-t2)*h*m[i+1]; };
 }
-const tR=pchip(TAIL,1), tDY=pchip(TAIL,2);
+let tR=pchip(TAIL,1), tDY=pchip(TAIL,2);
+function useType(key){CFG=TYPES[key]; L=CFG.L; CYL=54+CFG.dT; TAIL=TAIL300.map(([a,b,c])=>[a+CFG.dT,b,c]); tR=pchip(TAIL,1); tDY=pchip(TAIL,2);}
 function fus(s){
   if(s<NOSE){ const q=1-s/NOSE; return {r:R0*Math.pow(1-Math.pow(q,2.15),1/2.15), dy:-0.5*q*q}; }
-  if(s<=54) return {r:R0,dy:0};
+  if(s<=CYL) return {r:R0,dy:0};
   return {r:tR(s),dy:tDY(s)};
 }
 function thetaAt(s,h){ // угол на сечении для высоты h над осью YC
@@ -45,13 +58,18 @@ function liveryTexture(renderer){
   const gr=g.createLinearGradient(0,b1-30,0,b1+30); gr.addColorStop(0,'#F4F5F7'); gr.addColorStop(1,'#D9DCE0');
   g.fillStyle=gr; g.fillRect(0,b1-30,W,60); g.fillStyle='#D9DCE0'; g.fillRect(0,b1+30,W,b2-b1-60);
   const gr2=g.createLinearGradient(0,b2-30,0,b2+30); gr2.addColorStop(0,'#D9DCE0'); gr2.addColorStop(1,'#F4F5F7'); g.fillStyle=gr2; g.fillRect(0,b2-30,W,60);
-  // тонкая красная линия вдоль борта
-  [[1.70,1.74],[2*Math.PI-1.74,2*Math.PI-1.70]].forEach(([a,b])=>{g.fillStyle='#CE1F2C'; g.fillRect(U(8),V(a),U(58)-U(8),V(b)-V(a));});
-  const doors=[7.3,19.4,33.4,50.0,61.0];
+  // окраска: белая передняя часть, красный верх в хвостовой части и серая полоса-«волна» под ним
+  const sm=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1); return t*t*(3-2*t);};
+  for(let px=0;px<W;px+=2){const s=px/W*L, k=sm(0.40*L,0.80*L,s); if(k<=0.002) continue;
+    const thR=k*2.15, thG=thR+0.42*sm(0.46*L,0.62*L,s);
+    [1,-1].forEach(side=>{const a=side>0?0:2*Math.PI-thR;
+      g.fillStyle='#CE1F2C'; if(side>0) g.fillRect(px,0,2,V(thR)); else g.fillRect(px,V(2*Math.PI-thR),2,H-V(2*Math.PI-thR));
+      g.fillStyle='#5C6067'; if(side>0) g.fillRect(px,V(thR),2,V(thG)-V(thR)); else g.fillRect(px,V(2*Math.PI-thG),2,V(2*Math.PI-thR)-V(2*Math.PI-thG));});}
+  const doors=CFG.doors;
   const rr=(x,y,w,h,r)=>{g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath();};
   // окна салона
   g.fillStyle='#2A2F36';
-  for(let s=9.2;s<59.2;s+=0.533){
+  for(let s=9.2;s<59.2+CFG.dT;s+=0.533){
     if(doors.some(d=>Math.abs(s-d)<1.0)) continue;
     [1,-1].forEach(side=>{const th=thetaAt(s,0.85); const t=side>0?th:2*Math.PI-th; const w=U(0.25), h=V(0.36/fus(s).r);
       rr(U(s)-w/2,V(t)-h/2,w,h,Math.min(w,h)*0.45); g.fill();});
@@ -67,16 +85,10 @@ function liveryTexture(renderer){
     g.beginPath(); p.forEach(([s,th],k)=>{const t=side>0?th:2*Math.PI-th; const x=U(s), y=V(t); k?g.lineTo(x,y):g.moveTo(x,y);}); g.closePath(); g.fill();}));
   // проемы грузовых дверей (под створками)
   g.fillStyle='#1A1D21';
-  CARGO_DOORS.forEach(d=>{const a=thetaAt(d.s1,d.h1), b=thetaAt(d.s1,d.h2); g.fillRect(U(d.s1),V(a),U(d.s2)-U(d.s1),V(b)-V(a));});
+  CFG.cargo.forEach(d=>{const a=thetaAt(d.s1,d.h1), b=thetaAt(d.s1,d.h2); g.fillRect(U(d.s1),V(a),U(d.s2)-U(d.s1),V(b)-V(a));});
   const tex=new T.CanvasTexture(cv); tex.flipY=false; tex.encoding=T.sRGBEncoding; tex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
   return tex;
 }
-/* грузовые двери правого борта: станции и высоты над осью, м */
-const CARGO_DOORS=[
-  {k:'fwd',n:'Передняя грузовая дверь',s1:11.2,s2:13.9,h1:-1.05,h2:-2.72},
-  {k:'aft',n:'Задняя грузовая дверь',s1:50.8,s2:52.6,h1:-1.05,h2:-2.62},
-  {k:'blk',n:'Дверь навалочного отсека',s1:55.6,s2:56.75,h1:-1.45,h2:-2.3}
-];
 
 /* ---------- вспомогательные построения ---------- */
 function gridGeometry(rows,cols,fn){ // поверхность из сетки rows×cols точек fn(i,j)->[x,y,z,u,v]
@@ -105,9 +117,10 @@ function capGeometry(ring){ // плоская заглушка веером
   const g=new T.BufferGeometry(); g.setAttribute('position',new T.Float32BufferAttribute(pos,3)); g.setIndex(idx); g.computeVertexNormals(); return g;
 }
 
-/* ---------- самолет 777-300ER ---------- */
-function buildB777(ctx){
-  const root=new T.Group(); root.name='B777-300ER';
+/* ---------- самолет 777 (300ER и 200ER) ---------- */
+function buildB777(ctx,key){
+  useType(key); const C=CFG, dW=C.dW, dT=C.dT;
+  const root=new T.Group(); root.name=key;
   const M={
     skin:new T.MeshStandardMaterial({map:liveryTexture(ctx.renderer),roughness:.38,metalness:.06}),
     white:new T.MeshStandardMaterial({color:0xEEF0F2,roughness:.4,metalness:.06}),
@@ -125,25 +138,26 @@ function buildB777(ctx){
 
   // фюзеляж
   const st=[]; for(let i=0;i<=60;i++){const k=i/60; st.push(NOSE*(1-Math.cos(k*Math.PI/2)));}
-  for(let s=8;s<54;s+=2) st.push(s);
-  for(let s=54;s<=73.9001;s+=0.45) st.push(Math.min(s,73.9));
-  if(st[st.length-1]<73.9) st.push(73.9);
+  for(let s=8;s<CYL;s+=2) st.push(s);
+  for(let s=CYL;s<=L+1e-4;s+=0.45) st.push(Math.min(s,L));
+  if(st[st.length-1]<L) st.push(L);
   const SEG=72;
   const fgeo=gridGeometry(st.length,SEG+1,(i,j)=>{const s=st[i], f=fus(s), th=j/SEG*2*Math.PI;
     return [X(s),YC+f.dy+f.r*Math.cos(th),f.r*Math.sin(th),s/L,j/SEG];});
   const fusel=new T.Mesh(fgeo,M.skin); fusel.castShadow=true; root.add(fusel); shell.push(M.skin);
   // сопло ВСУ
-  const ft=fus(73.9); const apu=new T.Mesh(new T.CircleGeometry(ft.r,28),M.dark); apu.rotation.y=-Math.PI/2; apu.position.set(X(73.9)-0.01,YC+ft.dy,0); root.add(apu);
+  const ft=fus(L); const apu=new T.Mesh(new T.CircleGeometry(ft.r,28),M.dark); apu.rotation.y=-Math.PI/2; apu.position.set(X(L)-0.01,YC+ft.dy,0); root.add(apu);
   // обтекатель центроплана
-  const fair=new T.Mesh(new T.SphereGeometry(1,48,24),M.belly); fair.scale.set(11.5,1.35,3.3); fair.position.set(X(34.5),YC-2.35,0); fair.castShadow=true; root.add(fair);
+  const fair=new T.Mesh(new T.SphereGeometry(1,48,24),M.belly); fair.scale.set(11.5,1.35,3.3); fair.position.set(X(34.5+dW),YC-2.35,0); fair.castShadow=true; root.add(fair);
   M.belly.userData.op=.3; shell.push(M.belly);
 
   // крыло
-  const wst=[2.6,3.1,5,7,9,11,14,17,20,23,26,28.5,29.8,31.1,32.4];
-  const LE=b=> b<=28.5? 27.5+0.637*b : lerp(45.65,49.3,(b-28.5)/3.9);
-  const TE=b=> b<=3.1? 41.5 : b<=11? lerp(41.5,42.6,(b-3.1)/7.9) : b<=28.5? lerp(42.6,47.9,(b-11)/17.5) : lerp(47.9,50.0,(b-28.5)/3.9);
+  // 300ER: законцовка со скосом (raked wingtip), полуразмах 32,4 м; 200ER: обычная законцовка, 30,45 м
+  const wst= C.raked? [2.6,3.1,5,7,9,11,14,17,20,23,26,28.5,29.8,31.1,32.4] : [2.6,3.1,5,7,9,11,14,17,20,23,26,28.5,30.45];
+  const LE=b=> dW+(C.raked? (b<=28.5? 27.5+0.637*b : lerp(45.65,49.3,(b-28.5)/3.9)) : 27.5+0.637*b);
+  const TE=b=> dW+(b<=3.1? 41.5 : b<=11? lerp(41.5,42.6,(b-3.1)/7.9) : C.raked? (b<=28.5? lerp(42.6,47.9,(b-11)/17.5) : lerp(47.9,50.0,(b-28.5)/3.9)) : lerp(42.6,48.5,(b-11)/19.45));
   const TC=b=> b<=11? lerp(.14,.105,(b-2.6)/8.4) : lerp(.105,.09,(b-11)/21.4);
-  const Y0=b=>4.2+0.105*b + (b>29? (b-29)*0.06:0);
+  const Y0=b=>4.2+0.105*b + (C.raked&&b>29? (b-29)*0.06:0);
   function wingHalf(){
     const secs=wst.map(b=>{const le=LE(b), c=TE(b)-le; return airfoil(14,TC(b),0.018).map(([x,y])=>new T.Vector3(X(le+x*c),Y0(b)+y*c,b));});
     const g=new T.Group(); const w=new T.Mesh(loft(secs),M.wing); w.castShadow=true; g.add(w);
@@ -158,7 +172,7 @@ function buildB777(ctx){
     const pts=[[1.62,0],[1.79,.06],[1.91,.28],[1.97,.85],[1.97,2.4],[1.86,4.4],[1.62,5.8],[1.38,6.9],[1.3,7.25],[1.06,7.25],[1.0,7.7],[.84,8.5],[.7,8.9],[.56,8.9],[.32,9.55],[.03,10.0]];
     const shellG=new T.LatheGeometry(pts.map(([r,y])=>new T.Vector2(r,y)),48);
     const sh=new T.Mesh(shellG,M.white); sh.castShadow=true; g.add(sh);
-    const lip=new T.Mesh(new T.TorusGeometry(1.72,0.12,12,48),M.red); lip.rotation.x=Math.PI/2; lip.position.y=0.05; g.add(lip);
+    const lip=new T.Mesh(new T.TorusGeometry(1.72,0.12,12,48),M.metal); lip.rotation.x=Math.PI/2; lip.position.y=0.05; g.add(lip);
     const inner=new T.Mesh(new T.LatheGeometry([[1.62,0],[1.56,.3],[1.52,.95]].map(([r,y])=>new T.Vector2(r,y)),48),M.dark); g.add(inner);
     const disc=new T.Mesh(new T.CircleGeometry(1.52,40),M.dark); disc.rotation.x=Math.PI/2; disc.position.y=1.0; g.add(disc);
     const fan=new T.Group(); fan.position.y=0.92;
@@ -171,32 +185,32 @@ function buildB777(ctx){
     return g;
   }
   function pylon(){
-    const sh=new T.Shape(); [[30.6,4.3],[33.0,5.05],[41.6,5.05],[39.2,3.95],[36.4,3.8]].forEach(([s,y],i)=>i?sh.lineTo(X(s),y):sh.moveTo(X(s),y));
+    const sh=new T.Shape(); [[30.6,4.3],[33.0,5.05],[41.6,5.05],[39.2,3.95],[36.4,3.8]].forEach(([s,y],i)=>i?sh.lineTo(X(s+dW),y):sh.moveTo(X(s+dW),y));
     const g=new T.ExtrudeGeometry(sh,{depth:.6,bevelEnabled:false}); g.translate(0,0,-.3);
     const m=new T.Mesh(g,M.white); m.castShadow=true; return m;
   }
   // стабилизатор
   function stabHalf(){
     const bs=[1.4,3,5,7,9,10.75];
-    const secs=bs.map(b=>{const le=64.0+0.754*b, te=70.5+(74.0-70.5)/10.75*b, c=te-le; return airfoil(10,.1,0).map(([x,y])=>new T.Vector3(X(le+x*c),YC+.95+.123*b+y*c,b));});
+    const secs=bs.map(b=>{const le=64.0+dT+0.754*b, te=70.5+dT+(74.0-70.5)/10.75*b, c=te-le; return airfoil(10,.1,0).map(([x,y])=>new T.Vector3(X(le+x*c),YC+.95+.123*b+y*c,b));});
     const g=new T.Group(); const m=new T.Mesh(loft(secs),M.white); m.castShadow=true; g.add(m);
     g.add(new T.Mesh(capGeometry(secs[secs.length-1].slice(0,-1)),M.white)); return g;
   }
   // киль
   {
     const hs=[8.0,9.5,11.5,13.5,15.5,17.2,18.5];
-    const secs=hs.map(y=>{const k=(y-8.0)/10.5, le=lerp(60.2,69.6,k), te=lerp(71.6,73.1,k), c=te-le; return airfoil(12,.11,0).map(([x,z])=>new T.Vector3(X(le+x*c),y,z*c));});
+    const secs=hs.map(y=>{const k=(y-8.0)/10.5, le=lerp(60.2,69.6,k)+dT, te=lerp(71.6,73.1,k)+dT, c=te-le; return airfoil(12,.11,0).map(([x,z])=>new T.Vector3(X(le+x*c),y,z*c));});
     const fin=new T.Mesh(loft(secs),M.red); fin.castShadow=true; root.add(fin);
     root.add(new T.Mesh(capGeometry(secs[secs.length-1].slice(0,-1)),M.red));
   }
   // шасси
   function mainGear(){
     const g=new T.Group();
-    const strut=new T.Mesh(new T.CylinderGeometry(.2,.24,3.4,16),M.metal); strut.position.set(X(36.4),2.75,0); strut.castShadow=true; g.add(strut);
-    const brace=new T.Mesh(new T.CylinderGeometry(.09,.09,3.2,8),M.metal); brace.position.set(X(37.6),2.9,-.9); brace.rotation.set(.35,0,-.38); g.add(brace);
-    const beam=new T.Mesh(new T.BoxGeometry(3.5,.26,.28),M.metal); beam.position.set(X(36.4),.86,0); g.add(beam);
+    const strut=new T.Mesh(new T.CylinderGeometry(.2,.24,3.4,16),M.metal); strut.position.set(X(36.4+dW),2.75,0); strut.castShadow=true; g.add(strut);
+    const brace=new T.Mesh(new T.CylinderGeometry(.09,.09,3.2,8),M.metal); brace.position.set(X(37.6+dW),2.9,-.9); brace.rotation.set(.35,0,-.38); g.add(brace);
+    const beam=new T.Mesh(new T.BoxGeometry(3.5,.26,.28),M.metal); beam.position.set(X(36.4+dW),.86,0); g.add(beam);
     [-1.45,0,1.45].forEach(dx=>[-.72,.72].forEach(dz=>{
-      const w=new T.Group(); w.position.set(X(36.4)+dx,.66,dz);
+      const w=new T.Group(); w.position.set(X(36.4+dW)+dx,.66,dz);
       const tire=new T.Mesh(new T.CylinderGeometry(.66,.66,.48,28),M.tire); tire.rotation.x=Math.PI/2; tire.castShadow=true; w.add(tire);
       const hub=new T.Mesh(new T.CylinderGeometry(.36,.36,.5,20),M.metal); hub.rotation.x=Math.PI/2; w.add(hub); g.add(w);}));
     return g;
@@ -204,7 +218,7 @@ function buildB777(ctx){
   [1,-1].forEach(side=>{
     const half=new T.Group(); half.scale.z=side;
     half.add(wingHalf());
-    const e=engine(); e.position.set(X(28.8),2.5,9.6); half.add(e);
+    const e=engine(); e.position.set(X(28.8+dW),2.5,9.6); half.add(e);
     const p=pylon(); p.position.z=9.6; half.add(p);
     half.add(stabHalf());
     const mg=mainGear(); mg.position.z=5.5; half.add(mg);
@@ -220,7 +234,7 @@ function buildB777(ctx){
 
   // створки грузовых дверей (петля сверху, открываются вверх наружу)
   const doorMat=new T.MeshStandardMaterial({color:0xF4F5F7,roughness:.4,metalness:.06,side:T.DoubleSide}); doorMat.color.convertSRGBToLinear(); shell.push(doorMat); doorMat.userData.op=.28;
-  const doors=CARGO_DOORS.map(d=>{
+  const doors=C.cargo.map(d=>{
     const t1=thetaAt(d.s1,d.h1), t2=thetaAt(d.s1,d.h2), f=fus((d.s1+d.s2)/2), r=f.r+0.03;
     const py=YC+f.dy+r*Math.cos(t1), pz=r*Math.sin(t1);
     const geo=gridGeometry(6,10,(i,j)=>{const s=lerp(d.s1,d.s2,i/5), th=lerp(t1,t2,j/9), ff=fus(s), rr=ff.r+0.03; return [X(s)-X(d.s1),YC+ff.dy+rr*Math.cos(th)-py,rr*Math.sin(th)-pz];});
@@ -236,7 +250,7 @@ function buildB777(ctx){
   const holds=new T.Group(); root.add(holds);
   const floorMat=new T.MeshStandardMaterial({color:0x3A3F46,roughness:.8,transparent:true,opacity:.85});
   const linerMat=new T.MeshBasicMaterial({color:0x9AA3AD,transparent:true,opacity:.07,side:T.DoubleSide,depthWrite:false});
-  [[9.7,28.95,'fwd'],[40.5,55.0,'aft'],[55.0,58.2,'blk']].forEach(([s1,s2])=>{
+  C.zones.forEach(([s1,s2])=>{
     const w=3.36; const fl=new T.Mesh(new T.BoxGeometry(X(s1)-X(s2),.06,w),floorMat); fl.position.set((X(s1)+X(s2))/2,FLOOR-.03,0); holds.add(fl);
     const ln=[]; for(let z=-1.4;z<=1.41;z+=0.35){ln.push(new T.Vector3(X(s1),FLOOR+.005,z),new T.Vector3(X(s2),FLOOR+.005,z));}
     holds.add(new T.LineSegments(new T.BufferGeometry().setFromPoints(ln),new T.LineBasicMaterial({color:0x6B737C,transparent:true,opacity:.6})));
@@ -244,18 +258,19 @@ function buildB777(ctx){
     holds.add(new T.Mesh(lin,linerMat));
   });
 
-  // позиции AKE: 12 рядов в переднем отсеке, 9 рядов в заднем
+  // позиции AKE: два контейнера в ряд, шаг 1,59 м
   const P=[], pitch=1.59;
-  for(let i=0;i<12;i++)for(let sd=0;sd<2;sd++)P.push({id:`${11+i}${sd?'R':'L'}`,hold:'fwd',row:i,side:sd,x:X(9.8+i*pitch+pitch/2),z:0,door:'fwd'});
-  for(let i=0;i<9;i++)for(let sd=0;sd<2;sd++)P.push({id:`${31+i}${sd?'R':'L'}`,hold:'aft',row:i,side:sd,x:X(40.6+i*pitch+pitch/2),z:0,door:'aft'});
+  for(let i=0;i<C.rowsF;i++)for(let sd=0;sd<2;sd++)P.push({id:`${11+i}${sd?'R':'L'}`,hold:'fwd',row:i,side:sd,x:X(C.fwdS+i*pitch+pitch/2),z:0,door:'fwd'});
+  for(let i=0;i<C.rowsA;i++)for(let sd=0;sd<2;sd++)P.push({id:`${31+i}${sd?'R':'L'}`,hold:'aft',row:i,side:sd,x:X(C.aftS+i*pitch+pitch/2),z:0,door:'aft'});
+  const cF=C.fwdS+C.rowsF*pitch/2, cA=C.aftS+C.rowsA*pitch/2, dF=C.cargo[0], dA=C.cargo[1];
 
   const labels=[
-    {t:'Передний отсек',p:new T.Vector3(X(19.3),FLOOR+2.4,0)},
-    {t:'Задний отсек',p:new T.Vector3(X(47.8),FLOOR+2.4,0)}
+    {t:'Передний отсек',p:new T.Vector3(X(cF),FLOOR+2.4,0)},
+    {t:'Задний отсек',p:new T.Vector3(X(cA),FLOOR+2.4,0)}
   ];
-  const doorPos={fwd:new T.Vector3(X(12.55),FLOOR,0),aft:new T.Vector3(X(51.7),FLOOR,0)};
+  const doorPos={fwd:new T.Vector3(X((dF.s1+dF.s2)/2),FLOOR,0),aft:new T.Vector3(X((dA.s1+dA.s2)/2),FLOOR,0)};
   return {root,P,shell,doors,fans,labels,doorPos,full:true,extent:40,
-    presets:{iso:{th:.95,ph:.42,dist:80,t:[0,6,0]},side:{th:0,ph:.05,dist:90,t:[0,7.5,0]},top:{th:0,ph:1.5,dist:118,t:[0,4,0]},hold:{th:.3,ph:.62,dist:52,t:[X(33),4.4,0]}}};
+    presets:{iso:{th:.95,ph:.42,dist:80*L/73.9,t:[0,6,0]},side:{th:0,ph:.05,dist:90*L/73.9,t:[0,7.5,0]},top:{th:0,ph:1.5,dist:118*L/73.9,t:[0,4,0]},hold:{th:.3,ph:.62,dist:52*L/73.9,t:[X(33+dW),4.4,0]}}};
 }
 
 /* ---------- схема нижней палубы для остальных типов ---------- */
@@ -318,7 +333,7 @@ function create(o){
     S.token++; S.tweens.length=0;
     if(S.model) scene.remove(S.model.root);
     S.cargo.forEach(m=>m.parent&&m.parent.remove(m)); S.cargo.clear();
-    S.model= key==='B777-300ER'? buildB777({renderer}) : buildSchematic(ac);
+    S.model= TYPES[key]? buildB777({renderer},key) : buildSchematic(ac);
     scene.add(S.model.root);
     // посадочные места (призраки) для выбора
     uldGeo(); S.slots=[];
