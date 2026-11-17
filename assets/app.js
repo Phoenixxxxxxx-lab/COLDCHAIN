@@ -211,7 +211,7 @@ function econ(){
   const r=E.r/100; let acc=0,dpp=null; const cum=[]; cfs.forEach((c,t)=>{const d=c/Math.pow(1+r,t); if(dpp===null&&t>0&&acc+d>=0) dpp=t-1+(-acc)/d; acc+=d; cum.push(acc);});
   return {cfs,rows,npv:npv(r),irr:npv(-0.89)>0&&npv(4.99)<0?(lo+hi)/2:null,dpp,cum};
 }
-const EIDS={pot:['e-pot',1,' млн'],real:['e-real',0,' %'],m:['e-m',0,' %'],capex:['e-capex',1,' млн'],opex:['e-opex',1,' млн'],r:['e-r',1,' %']};
+const EIDS={pot:['e-pot',1,' млн'],real:['e-real',0,' %'],m:['e-m',0,' %'],capex:['e-capex',1,' млн'],opex:['e-opex',2,' млн'],r:['e-r',1,' %']};
 function initEcon(){Object.entries(EIDS).forEach(([k,[id]])=>{const el=$('#'+id); el.value=E[k]; el.oninput=ev=>{E[k]=+ev.target.value;drawEcon();};});}
 function drawEcon(){
   Object.entries(EIDS).forEach(([k,[id,d,u]])=>$('#'+id+'-v').textContent=fmt(E[k],d)+u);
@@ -229,7 +229,7 @@ function drawEcon(){
   vals.forEach((v,i)=>{const y0=Y(0),y1=Y(v),h=Math.max(Math.abs(y1-y0),1); g+=`<rect x="${X(i)-bw/2}" y="${Math.min(y0,y1)}" width="${bw}" height="${h}" rx="${Math.min(10,bw/2,h/2)}" fill="${v>=0?ink:bad}"/><text x="${X(i)}" y="${H-12}" text-anchor="middle">${i===0?'вложения':i+'-й год'}</text><text x="${X(i)}" y="${v>=0?y1-7:y1+15}" text-anchor="middle" style="fill:${ink};font-weight:700">${fmt(v,1)}</text>`;});
   g+=`<text x="${l}" y="11">накопленный дисконтированный поток, млн руб.</text>`;
   svg.innerHTML=g;
-  $('#e-tab').innerHTML='<thead><tr><th>Год</th><th>Реализация</th><th>Прирост выручки</th><th>Маржа</th><th>Снижение претензий</th><th>Поток</th></tr></thead><tbody>'+
+  $('#e-tab').innerHTML='<thead><tr><th>Год</th><th class="n">Реализация</th><th class="n">Прирост выручки</th><th class="n">Маржа</th><th class="n">Снижение претензий</th><th class="n">Поток</th></tr></thead><tbody>'+
     R.rows.map(x=>`<tr><td>${x.y}</td><td class="n">${fmt(x.re*100)} %</td><td class="n">${fmt(x.dr,1)}</td><td class="n">${fmt(x.dm,1)}</td><td class="n">${fmt(x.claims,1)}</td><td class="n">${fmt(x.cf,1)}</td></tr>`).join('')+'</tbody>';
 }
 
