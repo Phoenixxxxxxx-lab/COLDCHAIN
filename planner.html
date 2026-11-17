@@ -63,6 +63,7 @@ table.t{width:100%;border-collapse:collapse;font-size:13.5px}
 table.t th,table.t td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left;vertical-align:top}
 table.t th{font-weight:700;color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.06em}
 table.t td.n{text-align:right;font-weight:600}
+table.t th.n{text-align:right}
 #c-mc th:not(:first-child){text-align:right}
 .tw{overflow-x:auto}
 .bars{display:grid;gap:12px}
@@ -164,7 +165,7 @@ footer i{font-style:italic}
       <div class="bars" id="c-bars"></div>
       <h3>Разброс по 2000 смоделированных рейсов</h3>
       <div class="tw"><table class="t" id="c-mc"></table></div>
-      <p class="note">Свободная емкость равна объему и массе отсеков за вычетом багажа с учетом ограничения по коммерческой загрузке. В расчете разброса загрузка салона распределена по закону B(18; 2,6), багаж по N(16; 3) кг, коэффициент k равномерно от 0,85 до 1,0.</p>
+      <p class="note">Свободная емкость равна объему и массе отсеков за вычетом багажа с учетом ограничения по коммерческой загрузке. В расчете разброса загрузка салона распределена по закону B(18; 2,6), багаж по N(16; 3) кг, коэффициент k равномерно от 0,85 до 1,0. Плотность груза принята как в модели работы (рыба 350, ягоды и фрукты 220, цветы 110 кг/м³). По учетным данным авиакомпании за 2024–2026 годы фактическая плотность цветов около 143 кг/м³, поэтому на рейсах, где цветы упираются в объем, реальная емкость под них примерно на 30 % выше расчетной.</p>
     </div>
   </section>
 
@@ -213,11 +214,11 @@ footer i{font-style:italic}
   <section class="view" id="v-econ" hidden>
     <div class="panel">
       <h2>Допущения</h2>
-      <div class="field"><label for="e-pot">Потенциальная выручка, млн руб. в год</label><div class="row"><input id="e-pot" type="range" min="30" max="200" step="1"><span class="val" id="e-pot-v"></span></div></div>
+      <div class="field"><label for="e-pot">Потенциальная выручка, млн руб. в год</label><div class="row"><input id="e-pot" type="range" min="30" max="200" step="0.1"><span class="val" id="e-pot-v"></span></div></div>
       <div class="field"><label for="e-real">Реализация потенциала к 4-му году, %</label><div class="row"><input id="e-real" type="range" min="25" max="90" step="1"><span class="val" id="e-real-v"></span></div></div>
       <div class="field"><label for="e-m">Маржинальная доходность, %</label><div class="row"><input id="e-m" type="range" min="20" max="70" step="1"><span class="val" id="e-m-v"></span></div></div>
-      <div class="field"><label for="e-capex">Капитальные затраты, млн руб.</label><div class="row"><input id="e-capex" type="range" min="3" max="20" step="0.1"><span class="val" id="e-capex-v"></span></div></div>
-      <div class="field"><label for="e-opex">Постоянные расходы, млн руб. в год</label><div class="row"><input id="e-opex" type="range" min="1" max="10" step="0.1"><span class="val" id="e-opex-v"></span></div></div>
+      <div class="field"><label for="e-capex">Капитальные затраты, млн руб.</label><div class="row"><input id="e-capex" type="range" min="3" max="20" step="0.005"><span class="val" id="e-capex-v"></span></div></div>
+      <div class="field"><label for="e-opex">Постоянные расходы, млн руб. в год</label><div class="row"><input id="e-opex" type="range" min="1" max="10" step="0.01"><span class="val" id="e-opex-v"></span></div></div>
       <div class="field"><label for="e-r">Ставка дисконтирования, %</label><div class="row"><input id="e-r" type="range" min="10" max="30" step="0.5"><span class="val" id="e-r-v"></span></div></div>
     </div>
     <div class="panel">
